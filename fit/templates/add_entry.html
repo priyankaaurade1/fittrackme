@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-5 mb-5">
+  <div class="card shadow p-4">
+    <h2 class="text-center mb-4 text-primary">📝 Add Your Daily Routine</h2>
+    <form method="post" novalidate>
+  {% csrf_token %}
+
+  <div class="mb-3">
+    <label class="form-label">Goal</label>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="goal" value="gain" id="gain">
+      <label class="form-check-label" for="gain">Weight Gain</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="goal" value="loss" id="loss">
+      <label class="form-check-label" for="loss">Weight Loss</label>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label for="weight" class="form-label">Your Weight (kg)</label>
+    <input type="number" step="0.1" name="weight" class="form-control" id="weight">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Waking Meal</label>
+    {{ form.waking_meal }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Breakfast</label>
+    {{ form.breakfast }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Mid-Morning Snack</label>
+    {{ form.mid_morning_snack }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Lunch</label>
+    {{ form.lunch }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Evening Snack</label>
+    {{ form.evening_snack }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Dinner</label>
+    {{ form.dinner }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Before Bed</label>
+    {{ form.before_bed }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Workout</label>
+    {{ form.workout }}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Water Intake (ml)</label>
+    {{ form.water_intake }}
+  </div>
+
+  <button type="submit" class="btn btn-success w-100 mt-3">💾 Save Entry</button>
+</form>
+  </div>
+</div>
+{% endblock %}

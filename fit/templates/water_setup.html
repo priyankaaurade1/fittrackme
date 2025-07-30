@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Set Your Water Intake Goal</h2>
+  <form method="post">
+    {% csrf_token %}
+    
+    <div class="mb-3">
+      <label class="form-label">Measurement Type</label>
+      <select name="measurement_type" class="form-select">
+        <option value="glass" {% if target.measurement_type == "glass" %}selected{% endif %}>Glass</option>
+        <option value="bottle" {% if target.measurement_type == "bottle" %}selected{% endif %}>Bottle</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Volume per Glass/Bottle (ml)</label>
+      <input type="number" name="unit_volume" class="form-control" placeholder="e.g. 250 or 1000"
+             value="{{ target.unit_volume_ml|default_if_none:250 }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Quantity per Day</label>
+      <input type="number" name="quantity_per_day" class="form-control" placeholder="e.g. 8"
+             value="{{ target.quantity_per_day|default_if_none:8 }}">
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Save Water Goal</button>
+  </form>
+</div>
+{% endblock %}

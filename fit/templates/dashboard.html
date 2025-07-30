@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .row.mb-4 > .col-md-4 {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+</style>
+
+<div class="container mt-4">
+  <h2 class="text-center">📅 Today's Plan – {{ today|date:"l, j M Y" }}</h2>
+  <hr>
+    <div class="progress mb-3" style="height: 25px;">
+    <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_percent }}%;" aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+        {{ progress_percent }}%
+    </div>
+    </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <!-- ⚖️ Today's Weight + BMI + Chart -->
+<div class="row mb-4">
+  <!-- Weight Input -->
+  <div class="col-md-4 mb-3 mb-md-0">
+    <label for="today_weight" class="form-label"><strong>⚖️ Today's Weight (kg)</strong></label>
+    <input type="number" step="0.01" name="today_weight" id="today_weight" class="form-control"
+           value="{{ progress.today_weight|default_if_none:'' }}" placeholder="e.g., 60.5">
+  </div>
+
+  <!-- BMI & Motivation -->
+  <div class="col-md-4 mb-3 mb-md-0">
+    {% if weight_diff %}
+      <p class="mb-1 mt-4">
+        {% if weight_diff > 0 %}
+          🔺 Gained <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+        {% elif weight_diff < 0 %}
+          🔻 Lost <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+        {% else %}
+          ➖ No change since yesterday
+        {% endif %}
+      </p>
+    {% endif %}
+    {% if bmi %}
+      <p class="mb-1"><strong>🧮 BMI:</strong> {{ bmi }}</p>
+    {% endif %}
+    <p class="text-muted small">{{ motivation }}</p>
+  </div>
+
+  <!-- Weight Chart -->
+  <div class="col-md-4">
+    <canvas id="weightChart" height="150"></canvas>
+  </div>
+</div>
+
+    <!-- 🍽️ Diet Plan -->
+    <h4>🍽️ Diet Plan</h4>
+    {% for meal, food_list in diet.items %}
+    <strong>{{ meal }}</strong>
+    <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
+        {% for food in food_list %}
+        <div class="col">
+            <input type="checkbox" name="food_{{ food|slugify }}" id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
+                {% if food in progress.completed_foods %}checked{% endif %}>
+            <label for="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}">{{ food }}</label>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    <!-- 🏋️ Workout -->
+    <h4 class="mt-4">🏋️ Workout</h4>
+    <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
+    {% for workout in workouts %}
+        <div class="col">
+        <input class="form-check-input" type="checkbox" name="workout_{{ forloop.counter }}"
+                id="workout_{{ forloop.counter }}" value="{{ workout }}"
+                {% if workout in progress.completed_workouts %}checked{% endif %}>
+        <label class="form-check-label" for="workout_{{ forloop.counter }}">
+            {{ workout }}
+        </label>
+        </div>
+    {% endfor %}
+    </div>
+
+    <!-- 💧 Water Intake -->
+    <h4 class="mb-3">💧 Water Intake</h4>
+    <div class="row row-cols-4 row-cols-md-6 g-2 text-center">
+      {% for i in water_glass_range %}
+        <div class="col">
+          <input type="checkbox" class="btn-check" name="water_{{ i }}" id="water_{{ i }}"
+                 {% if i in progress.water_glasses %}checked{% endif %}>
+          <label class="btn btn-outline-info w-100" for="water_{{ i }}">
+            {% if i in progress.water_glasses %}
+              {% if water_type == "bottle" %}🧴{% else %}🥛{% endif %}
+            {% else %}
+              {% if water_type == "bottle" %}🍼{% else %}🧊{% endif %}
+            {% endif %}
+          </label>
+        </div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-success w-100 mt-4">✅ Save Progress</button>
+  </form>
+</div>
+<script>
+  const ctx = document.getElementById('weightChart').getContext('2d');
+  const weightChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ labels|safe }},
+      datasets: [{
+        label: 'Weight (kg)',
+        data: {{ weights|safe }},
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.3,
+        fill: false,
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      }
+    }
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,68 @@
+    {% extends "base.html" %}
+    {% block content %}
+    <div class="container mt-4">
+    <h2>Your Profile</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="row g-3">
+        <div class="col-md-6">
+            <label>Full Name</label>
+            <input type="text" name="full_name" class="form-control" value="{{ profile.full_name }}">
+        </div>
+        <div class="col-md-3">
+            <label>Age</label>
+            <input type="number" name="age" class="form-control" value="{{ profile.age }}" required>
+        </div>
+        <div class="col-md-3">
+            <label>Sex</label>
+            <select name="sex" class="form-select">
+            <option value="male" {% if profile.sex == 'male' %}selected{% endif %}>Male</option>
+            <option value="female" {% if profile.sex == 'female' %}selected{% endif %}>Female</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label>Height (cm)</label>
+            <input type="number" name="height_cm" step="0.001" class="form-control" value="{{ profile.height_cm }}">
+        </div>
+        <div class="col-md-6">
+            <label>Current Weight (kg)</label>
+            <input type="number" name="current_weight" step="0.001" class="form-control" value="{{ profile.current_weight }}">
+        </div>
+        </div>
+        <button class="btn btn-success mt-3 w-100">Save Profile</button>
+    </form>
+
+    {% if profile.height_cm and profile.current_weight %}
+    <div class="mt-4 alert alert-info">
+        <strong>📏 BMI:</strong> {{ profile.bmi }}<br>
+        {% if profile.bmi < 18.5 %}
+            <span class="text-warning">Underweight</span>
+        {% elif profile.bmi < 25 %}
+            <span class="text-success">Normal</span>
+        {% elif profile.bmi < 30 %}
+            <span class="text-warning">Overweight</span>
+        {% else %}
+            <span class="text-danger">Obese</span>
+        {% endif %}
+    </div>
+
+    <!-- ✅ BMI Scale -->
+    <div class="mt-3">
+    <label><strong>📊 BMI Classification:</strong></label>
+    <div class="progress" style="height: 30px;">
+        <div class="progress-bar bg-warning" style="width: 18.5%;">Underweight</div>
+        <div class="progress-bar bg-success" style="width: 6.5%;">Normal</div>
+        <div class="progress-bar bg-warning" style="width: 5%;">Overweight</div>
+        <div class="progress-bar bg-danger" style="width: 70%;">Obese</div>
+    </div>
+    <small class="text-muted d-block mt-2">
+        <strong>Reference:</strong><br>
+        - Underweight: BMI &lt; 18.5<br>
+        - Normal: 18.5 – 24.9<br>
+        - Overweight: 25 – 29.9<br>
+        - Obese: 30+
+    </small>
+    </div>
+    {% endif %}
+
+    {% endblock %}

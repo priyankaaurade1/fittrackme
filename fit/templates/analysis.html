@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">📊 Health Analysis</h2>
+
+  <form method="get" class="mb-3 text-end">
+    <select name="range" class="form-select w-auto d-inline" onchange="this.form.submit()">
+      <option value="day" {% if selected_range == 'day' %}selected{% endif %}>Today</option>
+      <option value="week" {% if selected_range == 'week' %}selected{% endif %}>This Week</option>
+      <option value="month" {% if selected_range == 'month' %}selected{% endif %}>This Month</option>
+      <option value="year" {% if selected_range == 'year' %}selected{% endif %}>This Year</option>
+    </select>
+  </form>
+
+  <div class="row">
+    <div class="row mt-4">
+        <div class="col-md-6 text-center">
+            <h6>🍽️ Meal Completion</h6>
+            <canvas id="mealProgressChart"></canvas>
+            <p class="mt-2">{{ meal_completion_percent }}%</p>
+        </div>
+        <div class="col-md-6 text-center">
+            <h6>💪 Workout Completion</h6>
+            <canvas id="workoutProgressChart"></canvas>
+            <p class="mt-2">{{ workout_completion_percent }}%</p>
+        </div>
+        </div>
+
+        <div class="mt-5">
+        <h6>📅 Day-wise Activity Overview</h6>
+        <canvas id="completionBarChart" height="120"></canvas>
+        </div>
+  </div>
+
+  <hr>
+
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <h5>💧 Water Intake</h5>
+      <p>
+        Goal: {{ water_goal_liters }} L ({{ water_goal_glasses }} glasses)<br>
+        Average Intake: {{ average_water }} glasses
+      </p>
+      <canvas id="waterChart" height="160"></canvas>
+    </div>
+
+    <div class="col-md-6">
+      <h5>⚖️ Weight Progress</h5>
+      <p><strong>Start:</strong> {{ first_weight }} kg &nbsp;&nbsp; <strong>Current:</strong> {{ last_weight }} kg</p>
+      <canvas id="weightChart" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const waterCtx = document.getElementById('waterChart').getContext('2d');
+  const weightCtx = document.getElementById('weightChart').getContext('2d');
+  const mealProgressCtx = document.getElementById('mealProgressChart').getContext('2d');
+  const workoutProgressCtx = document.getElementById('workoutProgressChart').getContext('2d');
+  new Chart(waterCtx, {
+    type: 'bar',
+    data: {
+      labels: {{ water_chart.labels|safe }},
+      datasets: [{
+        label: 'Glasses of Water',
+        data: {{ water_chart.data|safe }},
+        backgroundColor: '#4dabf7',
+        borderRadius: 5,
+        barThickness: 20
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Water Intake Progress (glasses)'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          suggestedMax: {{ water_goal_glasses|default:12 }}
+        }
+      }
+    }
+  });
+
+  new Chart(weightCtx, {
+    type: 'line',
+    data: {
+      labels: {{ weight_chart.labels|safe }},
+      datasets: [{
+        label: 'Weight (kg)',
+        data: {{ weight_chart.data|safe }},
+        borderColor: '#ff6384',
+        backgroundColor: 'rgba(255,99,132,0.2)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Weight Trend Over Time'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      }
+    }
+  });
+  new Chart(mealProgressCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Completed', 'Remaining'],
+    datasets: [{
+      data: [{{ workout_completion_percent }}, {{ workout_remaining_percent }}],
+      backgroundColor: ['#28a745', '#e0e0e0']
+    }]
+  },
+  options: {
+    cutout: '70%',
+    plugins: {
+      tooltip: { enabled: true },
+      legend: { display: false },
+    }
+  }
+});
+
+new Chart(workoutProgressCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Completed', 'Remaining'],
+    datasets: [{
+      data: [{{ workout_completion_percent }}, {{ workout_remaining_percent }}],  
+      backgroundColor: ['#007bff', '#e0e0e0']
+    }]
+  },
+  options: {
+    cutout: '70%',
+    plugins: {
+      tooltip: { enabled: true },
+      legend: { display: false },
+    }
+  }
+});
+
+const barCtx = document.getElementById('completionBarChart').getContext('2d');
+new Chart(barCtx, {
+  type: 'bar',
+  data: {
+    labels: {{ bar_labels|safe }},  // e.g., ['Mon', 'Tue', ...]
+    datasets: [
+      {
+        label: 'Meals',
+        data: {{ meal_bar_data|safe }},
+        backgroundColor: '#28a745'
+      },
+      {
+        label: 'Workouts',
+        data: {{ workout_bar_data|safe }},
+        backgroundColor: '#007bff'
+      }
+    ]
+  },
+  options: {
+    scales: {
+      y: { beginAtZero: true, max: 1 }
+    }
+  }
+});
+</script>
+{% endblock %}

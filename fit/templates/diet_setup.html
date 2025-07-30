@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Set Your Daily Diet Plan</h2>
+  <form method="post" id="dietForm">
+    {% csrf_token %}
+
+    {% for meal, food_string in meal_data %}
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <label class="form-label mb-0">{{ meal }}</label>
+          <button type="button" class="btn btn-sm btn-outline-primary add-btn" data-meal="{{ meal|slugify }}">+ Add</button>
+        </div>
+        <div class="meal-group" id="{{ meal|slugify }}-group">
+          {% with food_string|default:'' as food_line %}
+            {% for item in food_line.splitlines %}
+              <input type="text" name="{{ meal|slugify }}_item_{{ forloop.counter }}" class="form-control mb-1"
+                     value="{{ item }}" placeholder="Food item for {{ meal }}">
+            {% endfor %}
+          {% endwith %}
+          <input type="text" name="{{ meal|slugify }}_item_new" class="form-control mb-1" placeholder="Add more food for {{ meal }}">
+        </div>
+      </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary w-100">Save Diet Plan</button>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const addButtons = document.querySelectorAll('.add-btn');
+
+      addButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+          const mealSlug = btn.dataset.meal;
+          const group = document.getElementById(`${mealSlug}-group`);
+
+          const count = group.querySelectorAll('input').length + 1;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.name = `${mealSlug}_item_${count}`;
+          input.placeholder = `Food item for ${mealSlug.replace('-', ' ')}`;
+          input.className = 'form-control mb-1';
+
+          group.appendChild(input);
+        });
+      });
+    });
+  </script>
+</div>
+{% endblock %}

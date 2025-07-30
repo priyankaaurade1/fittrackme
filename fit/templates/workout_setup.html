@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Set Weekly Workout Plan</h2>
+  <form method="post" id="workout-form">
+    {% csrf_token %}
+    {% for day, exercises in workout_data %}
+      <div class="mb-3">
+        <label class="form-label d-flex justify-content-between">
+          {{ day }}
+          <button type="button" class="btn btn-sm btn-outline-success" onclick="addExerciseField('{{ day }}')">➕ Add</button>
+        </label>
+        <div id="{{ day|slugify }}-container">
+          {% for exercise in exercises %}
+          <input type="text" name="{{ day|slugify }}" class="form-control mb-2" value="{{ exercise }}">
+          {% empty %}
+          <input type="text" name="{{ day|slugify }}" class="form-control mb-2">
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100">Save Workout Plan</button>
+  </form>
+</div>
+
+<script>
+  function addExerciseField(day) {
+    const container = document.getElementById(day.toLowerCase().replace(/ /g, '-') + '-container');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = day.toLowerCase().replace(/ /g, '-');
+    input.classList.add('form-control', 'mb-2');
+    container.appendChild(input);
+  }
+</script>
+{% endblock %}

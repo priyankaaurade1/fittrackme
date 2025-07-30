@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FitTrackMe</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      padding-top: 56px;
+    }
+    .sidebar {
+      height: 100vh;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      padding-top: 1rem;
+      background-color: #f8f9fa;
+      width: 220px;
+    }
+    .content {
+      margin-left: 220px;
+      padding: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+      .content {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">FitTrackMe</a>
+    <!-- Desktop Greeting -->
+    <div class="text-white ms-auto d-none d-lg-block">
+    👋 Hello, {{ user_full_name|default:request.user.username }}
+    </div>
+
+    <!-- Mobile Greeting -->
+    <div class="d-block d-lg-none text-white mt-2">
+    👋 Hello, {{ user_full_name|default:request.user.username }}
+    </div>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Sidebar -->
+<div class="sidebar collapse d-lg-block" id="sidebarMenu">
+  <ul class="nav flex-column px-3">
+    <li class="nav-item"><a class="nav-link" href="{% url 'profile' %}">👤 Profile</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">🏠 Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'diet_setup' %}">🥗 Set Diet Plan</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'water_setup' %}">💧 Set Water Goal</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'workout_setup' %}">🏋️ Set Workout Plan</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'analysis' %}">📊 Analysis</a></li>
+    <li class="nav-item"><a class="nav-link text-danger" href="{% url 'logout' %}">🚪 Logout</a></li>
+  </ul>
+</div>
+
+<!-- Main Content -->
+<div class="content">
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
