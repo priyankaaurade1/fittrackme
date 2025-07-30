@@ -13,23 +13,14 @@
   </form>
 
   <div class="row">
-    <div class="row mt-4">
-        <div class="col-md-6 text-center">
-            <h6>🍽️ Meal Completion</h6>
-            <canvas id="mealProgressChart"></canvas>
-            <p class="mt-2">{{ meal_completion_percent }}%</p>
-        </div>
-        <div class="col-md-6 text-center">
-            <h6>💪 Workout Completion</h6>
-            <canvas id="workoutProgressChart"></canvas>
-            <p class="mt-2">{{ workout_completion_percent }}%</p>
-        </div>
-        </div>
-
-        <div class="mt-5">
-        <h6>📅 Day-wise Activity Overview</h6>
-        <canvas id="completionBarChart" height="120"></canvas>
-        </div>
+    <div class="col-md-6">
+      <h5>✅ Meal Completion</h5>
+      <p>{{ meal_completion_percent }}% ({{ meal_completed_days }} of {{ total_days }} days)</p>
+    </div>
+    <div class="col-md-6">
+      <h5>💪 Workout Completion</h5>
+      <p>{{ workout_completion_percent }}% ({{ workout_days }} of {{ total_days }} days)</p>
+    </div>
   </div>
 
   <hr>
@@ -40,7 +31,7 @@
       <p>
         Goal: {{ water_goal_liters }} L ({{ water_goal_glasses }} glasses)<br>
         Average Intake: {{ average_water }} glasses
-      </p>
+        </p>
       <canvas id="waterChart" height="160"></canvas>
     </div>
 
@@ -56,8 +47,7 @@
 <script>
   const waterCtx = document.getElementById('waterChart').getContext('2d');
   const weightCtx = document.getElementById('weightChart').getContext('2d');
-  const mealProgressCtx = document.getElementById('mealProgressChart').getContext('2d');
-  const workoutProgressCtx = document.getElementById('workoutProgressChart').getContext('2d');
+
   new Chart(waterCtx, {
     type: 'bar',
     data: {
@@ -117,65 +107,5 @@
       }
     }
   });
-  new Chart(mealProgressCtx, {
-  type: 'doughnut',
-  data: {
-    labels: ['Completed', 'Remaining'],
-    datasets: [{
-      data: [{{ workout_completion_percent }}, {{ workout_remaining_percent }}],
-      backgroundColor: ['#28a745', '#e0e0e0']
-    }]
-  },
-  options: {
-    cutout: '70%',
-    plugins: {
-      tooltip: { enabled: true },
-      legend: { display: false },
-    }
-  }
-});
-
-new Chart(workoutProgressCtx, {
-  type: 'doughnut',
-  data: {
-    labels: ['Completed', 'Remaining'],
-    datasets: [{
-      data: [{{ workout_completion_percent }}, {{ workout_remaining_percent }}],  
-      backgroundColor: ['#007bff', '#e0e0e0']
-    }]
-  },
-  options: {
-    cutout: '70%',
-    plugins: {
-      tooltip: { enabled: true },
-      legend: { display: false },
-    }
-  }
-});
-
-const barCtx = document.getElementById('completionBarChart').getContext('2d');
-new Chart(barCtx, {
-  type: 'bar',
-  data: {
-    labels: {{ bar_labels|safe }},  // e.g., ['Mon', 'Tue', ...]
-    datasets: [
-      {
-        label: 'Meals',
-        data: {{ meal_bar_data|safe }},
-        backgroundColor: '#28a745'
-      },
-      {
-        label: 'Workouts',
-        data: {{ workout_bar_data|safe }},
-        backgroundColor: '#007bff'
-      }
-    ]
-  },
-  options: {
-    scales: {
-      y: { beginAtZero: true, max: 1 }
-    }
-  }
-});
 </script>
 {% endblock %}
