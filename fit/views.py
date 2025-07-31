@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from django.db.models import Q
 from decimal import Decimal
 import json
+from django.shortcuts import get_object_or_404
 
 def register_view(request):
     if request.method == 'POST':
@@ -202,6 +203,9 @@ def dashboard(request):
         bmi = None
         motivation = "Update your profile to get BMI and suggestions."
 
+    user_profile = get_object_or_404(UserProfile, user=user)
+    user_height = user_profile.height_cm
+    yesterday_weight = weights[-2] if len(weights) >= 2 else None
     context = {
         'today': today,
         'diet': diet,
@@ -216,6 +220,8 @@ def dashboard(request):
         'weight_diff': weight_diff,
         'bmi': bmi,
         'motivation': motivation,
+        'user_height': user_height,
+        'yesterday_weight': yesterday_weight,
     }
     return render(request, 'dashboard.html', context)
 

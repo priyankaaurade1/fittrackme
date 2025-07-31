@@ -6,104 +6,227 @@
     flex-direction: column;
     justify-content: center;
   }
+
+  .progress-wrapper {
+    background: #f9f9f9;
+    padding: 10px 15px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  }
+
+  .progress-label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    text-align: center;
+    font-size: 1.1rem;
+  }
+
+  .custom-progress {
+    height: 28px;
+    background-color: #e0e0e0;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .custom-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6dd5ed, #2193b0);
+    transition: all 0.6s ease-in-out;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    line-height: 28px;
+    font-size: 14px;
+    border-radius: 20px;
+  }
+
+  input[type="checkbox"] {
+    transform: scale(1.2);
+    margin-right: 8px;
+  }
+
+  label {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  @media (max-width: 576px) {
+    h2, h4 {
+      font-size: 1.3rem;
+    }
+
+    .card-header {
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .form-label {
+      font-size: 1rem;
+    }
+
+    .btn {
+      font-size: 1rem;
+    }
+
+    .progress-label {
+      font-size: 1rem;
+    }
+
+    .custom-progress {
+      height: 24px;
+    }
+
+    .custom-bar {
+      font-size: 12px;
+      line-height: 24px;
+    }
+
+    .row-cols-4 > .col,
+    .row-cols-6 > .col {
+      flex: 0 0 33.3333%;
+      max-width: 33.3333%;
+    }
+  }
+  @media (max-width: 576px) {
+  .form-check-label, label {
+    font-size: 0.95rem;
+  }
+
+  input[type="checkbox"] {
+    transform: scale(1.2);
+    margin-right: 6px;
+  }
+}
+
 </style>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
 <div class="container mt-4">
-  <h2 class="text-center">📅 Today's Plan – {{ today|date:"l, j M Y" }}</h2>
-  <hr>
-    <div class="progress mb-3" style="height: 25px;">
-    <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_percent }}%;" aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+  <h2 class="text-center mb-4 fs-4 fs-md-3">📅 Today's Plan – {{ today|date:"l, j M Y" }}</h2>
+
+  <div class="alert alert-primary text-center fw-bold shadow-sm rounded-3">
+    🚀 Keep going! Every checkbox is a step closer to your goal!
+  </div>
+
+  <div class="progress-wrapper mb-3">
+    <div class="progress-label">
+      🏁 Progress: <span id="progressPercentText">{{ progress_percent }}%</span>
+    </div>
+    <div class="progress custom-progress">
+      <div class="progress-bar custom-bar" role="progressbar"
+           style="width: {{ progress_percent }}%;" 
+           aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100">
         {{ progress_percent }}%
+      </div>
     </div>
-    </div>
+  </div>
 
   <form method="post">
     {% csrf_token %}
-    <!-- ⚖️ Today's Weight + BMI + Chart -->
-<div class="row mb-4">
-  <!-- Weight Input -->
-  <div class="col-md-4 mb-3 mb-md-0">
-    <label for="today_weight" class="form-label"><strong>⚖️ Today's Weight (kg)</strong></label>
-    <input type="number" step="0.01" name="today_weight" id="today_weight" class="form-control"
-           value="{{ progress.today_weight|default_if_none:'' }}" placeholder="e.g., 60.5">
-  </div>
 
-  <!-- BMI & Motivation -->
-  <div class="col-md-4 mb-3 mb-md-0">
-    {% if weight_diff %}
-      <p class="mb-1 mt-4">
-        {% if weight_diff > 0 %}
-          🔺 Gained <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
-        {% elif weight_diff < 0 %}
-          🔻 Lost <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
-        {% else %}
-          ➖ No change since yesterday
-        {% endif %}
-      </p>
-    {% endif %}
-    {% if bmi %}
-      <p class="mb-1"><strong>🧮 BMI:</strong> {{ bmi }}</p>
-    {% endif %}
-    <p class="text-muted small">{{ motivation }}</p>
-  </div>
+    <!-- ⚖️ Weight + BMI -->
+    <div class="row mb-4">
+      <div class="col-md-4 mb-3 mb-md-0">
+        <label for="today_weight" class="form-label"><strong>⚖️ Today's Weight (kg)</strong></label>
+        <input type="number" step="0.01" name="today_weight" id="today_weight" class="form-control"
+               value="{{ progress.today_weight|default_if_none:'' }}" placeholder="e.g., 60.5">
+      </div>
 
-  <!-- Weight Chart -->
-  <div class="col-md-4">
-    <canvas id="weightChart" height="150"></canvas>
-  </div>
-</div>
+      <input type="hidden" id="user_height" value="{{ user_height }}">
+      <input type="hidden" id="yesterday_weight" value="{{ yesterday_weight }}">
+
+      <div class="col-md-4 mb-3 mb-md-0">
+        <p id="weightDiffDisplay" class="mb-1 mt-4">
+          {% if weight_diff > 0 %}
+            <span style="color: green; font-weight: bold;font-size:x-large ;">↑</span> Gained <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+          {% elif weight_diff < 0 %}
+            <span style="color: red; font-weight: bold;font-size:x-large">↓</span> Lost <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+          {% else %}
+            <span style="color: gray;">→</span> No change since yesterday
+          {% endif %}
+        </p>
+        <p class="mb-1"><strong>🧮 BMI:</strong> <span id="bmiValue" class="fw-bold">{{ bmi|default:'--' }}</span></p>
+        <p class="text-muted small">{{ motivation }}</p>
+      </div>
+
+      <div class="col-md-4">
+        <canvas id="weightChart" height="150"></canvas>
+      </div>
+    </div>
 
     <!-- 🍽️ Diet Plan -->
-    <h4>🍽️ Diet Plan</h4>
-    {% for meal, food_list in diet.items %}
-    <strong>{{ meal }}</strong>
-    <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
-        {% for food in food_list %}
-        <div class="col">
+    <div class="card mb-4">
+      <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
+      <div class="card-body">
+        {% for meal, food_list in diet.items %}
+        <strong>{{ meal }}</strong>
+        <div class="row row-cols-2 row-cols-md-2 g-2 mb-3">
+          {% for food in food_list %}
+          <div class="col">
             <input type="checkbox" name="food_{{ food|slugify }}" id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
-                {% if food in progress.completed_foods %}checked{% endif %}>
+                   {% if food in progress.completed_foods %}checked{% endif %}>
             <label for="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}">{{ food }}</label>
+          </div>
+          {% endfor %}
         </div>
         {% endfor %}
+      </div>
     </div>
-    {% endfor %}
 
     <!-- 🏋️ Workout -->
-    <h4 class="mt-4">🏋️ Workout</h4>
-    <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
-    {% for workout in workouts %}
-        <div class="col">
-        <input class="form-check-input" type="checkbox" name="workout_{{ forloop.counter }}"
-                id="workout_{{ forloop.counter }}" value="{{ workout }}"
-                {% if workout in progress.completed_workouts %}checked{% endif %}>
-        <label class="form-check-label" for="workout_{{ forloop.counter }}">
-            {{ workout }}
-        </label>
+    <div class="card mb-4">
+      <div class="card-header bg-light fw-bold">🏋️ Workout</div>
+      <div class="card-body">
+        <div class="row row-cols-2 row-cols-md-2 g-2 mb-3">
+          {% for workout in workouts %}
+          <div class="col">
+            <input class="form-check-input" type="checkbox" name="workout_{{ forloop.counter }}"
+                   id="workout_{{ forloop.counter }}" value="{{ workout }}"
+                   {% if workout in progress.completed_workouts %}checked{% endif %}>
+            <label class="form-check-label" for="workout_{{ forloop.counter }}">{{ workout }}</label>
+          </div>
+          {% endfor %}
         </div>
-    {% endfor %}
+      </div>
     </div>
 
     <!-- 💧 Water Intake -->
-    <h4 class="mb-3">💧 Water Intake</h4>
-    <div class="row row-cols-4 row-cols-md-6 g-2 text-center">
-      {% for i in water_glass_range %}
-        <div class="col">
-          <input type="checkbox" class="btn-check" name="water_{{ i }}" id="water_{{ i }}"
-                 {% if i in progress.water_glasses %}checked{% endif %}>
-          <label class="btn btn-outline-info w-100" for="water_{{ i }}">
-            {% if i in progress.water_glasses %}
-              {% if water_type == "bottle" %}🧴{% else %}🥛{% endif %}
-            {% else %}
-              {% if water_type == "bottle" %}🍼{% else %}🧊{% endif %}
-            {% endif %}
-          </label>
+    <div class="card mb-4">
+      <div class="card-header bg-light fw-bold">💧 Water Intake</div>
+      <div class="card-body">
+        <div class="row row-cols-4 row-cols-md-6 text-center">
+          {% for i in water_glass_range %}
+          <div class="col">
+            <input type="checkbox" class="btn-check" name="water_{{ i }}" id="water_{{ i }}"
+                   {% if i in progress.water_glasses %}checked{% endif %}>
+            <label class="btn btn-outline-info w-100" for="water_{{ i }}">
+              {% if i in progress.water_glasses %}
+                {% if water_type == "bottle" %}🧴{% else %}🥛{% endif %}
+              {% else %}
+                {% if water_type == "bottle" %}🍼{% else %}🧊{% endif %}
+              {% endif %}
+            </label>
+          </div>
+          {% endfor %}
         </div>
-      {% endfor %}
+      </div>
     </div>
 
-    <button type="submit" class="btn btn-success w-100 mt-4">✅ Save Progress</button>
+    <!-- Sticky Save for Mobile -->
+    <div class="sticky-bottom bg-white py-2 px-2 border-top d-md-none">
+      <button type="submit" class="btn btn-success w-100 ">✅ Save Progress</button>
+    </div>
+
+    <!-- Normal Save for Desktop -->
+    <div class="d-none d-md-block">
+      <button type="submit" class="btn btn-success w-100 mt-4 ">✅ Save Progress</button>
+    </div>
   </form>
 </div>
+
+<!-- JS for Chart, BMI, Progress, Water Emojis -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   const ctx = document.getElementById('weightChart').getContext('2d');
   const weightChart = new Chart(ctx, {
@@ -129,6 +252,85 @@
       }
     }
   });
-</script>
 
+  const weightInput = document.getElementById('today_weight');
+  const height = parseFloat(document.getElementById('user_height').value);
+  const yesterdayWeight = parseFloat(document.getElementById('yesterday_weight').value);
+  const bmiDisplay = document.getElementById('bmiValue');
+  const weightDiffDisplay = document.getElementById('weightDiffDisplay');
+
+  function updateLiveCalculations() {
+    const weight = parseFloat(weightInput.value);
+
+    if (!isNaN(weight)) {
+      if (!isNaN(height) && height > 0) {
+        const bmi = weight / ((height / 100) ** 2);
+        bmiDisplay.textContent = bmi.toFixed(2);
+      }
+
+      if (!isNaN(yesterdayWeight)) {
+        const diff = weight - yesterdayWeight;
+        let diffText = '';
+
+        if (diff > 0) {
+          diffText = `<span style="color:green; font-weight: bold;">↑</span> Gained <strong>${diff.toFixed(1)}</strong> kg since yesterday`;
+        } else if (diff < 0) {
+          diffText = `<span style="color:red; font-weight: bold;">↓</span> Lost <strong>${Math.abs(diff).toFixed(1)}</strong> kg since yesterday`;
+        } else {
+          diffText = `<span style="color:gray;">→</span> No change since yesterday`;
+        }
+
+        weightDiffDisplay.innerHTML = diffText;
+      }
+    } else {
+      bmiDisplay.textContent = '--';
+      weightDiffDisplay.innerHTML = '';
+    }
+  }
+
+  weightInput.addEventListener('input', updateLiveCalculations);
+
+  function updateProgressBar() {
+    const all = document.querySelectorAll('input[type="checkbox"]');
+    const checked = Array.from(all).filter(cb => cb.checked).length;
+    const percent = Math.round((checked / all.length) * 100);
+
+    const bar = document.querySelector('.custom-bar');
+    const text = document.getElementById('progressPercentText');
+
+    bar.style.width = percent + "%";
+    bar.setAttribute("aria-valuenow", percent);
+    bar.textContent = percent + "%";
+    text.textContent = percent + "%";
+
+    if (percent < 50) {
+      bar.style.background = "linear-gradient(90deg, #ff6a6a, #ff4d4d)";
+    } else if (percent < 80) {
+      bar.style.background = "linear-gradient(90deg, #ffe259, #ffa751)";
+    } else {
+      bar.style.background = "linear-gradient(90deg, #38ef7d, #11998e)";
+    }
+  }
+
+  document.querySelectorAll('input[type="checkbox"]').forEach(cb =>
+    cb.addEventListener('change', updateProgressBar)
+  );
+  updateProgressBar();
+
+  document.querySelectorAll('[id^="water_"]').forEach(el => {
+    el.addEventListener('change', function () {
+      const label = document.querySelector(`label[for="${this.id}"]`);
+      const waterType = "{{ water_type }}";
+
+      if (this.checked) {
+        label.innerHTML = waterType === "bottle" ? "🧴" : "🥛";
+      } else {
+        label.innerHTML = waterType === "bottle" ? "🍼" : "🧊";
+      }
+
+      label.classList.add("animate__animated", "animate__bounceIn");
+      setTimeout(() => label.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+    });
+  });
+</script>
 {% endblock %}
