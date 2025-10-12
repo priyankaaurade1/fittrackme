@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+  <div class="card shadow-lg p-4" style="max-width: 500px; width: 100%; border-radius: 20px;">
+    <!-- Tabs -->
+    <ul class="nav nav-tabs nav-fill mb-4" id="authTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab">Register</button>
+      </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="authTabsContent">
+
+      <!-- Login Tab -->
+      <div class="tab-pane fade show active" id="login" role="tabpanel">
+        <h4 class="text-center text-primary mb-3">🔐 Login</h4>
+        <form method="post" action="{% url 'login' %}">
+          {% csrf_token %}
+          {% for field in login_form %}
+            <div class="mb-3">
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.errors %}
+                <div class="text-danger small">{{ field.errors.0 }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <div class="d-grid">
+            <button type="submit" name="login" class="btn btn-primary rounded-pill">Login</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Register Tab -->
+      <div class="tab-pane fade" id="register" role="tabpanel">
+        <h4 class="text-center text-success mb-3">📝 Register</h4>
+        <form method="post" action="{% url 'login' %}">
+          {% csrf_token %}
+          {% for field in register_form %}
+            <div class="mb-3">
+              {{ field.label_tag }}
+              {{ field }}
+              {% if field.errors %}
+                <div class="text-danger small">{{ field.errors.0 }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <div class="d-grid">
+            <button type="submit" name="register" class="btn btn-success rounded-pill">Register</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  input[type="text"], input[type="password"] {
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    width: 100%;
+  }
+  label {
+    font-weight: 500;
+  }
+</style>
+{% endblock %}

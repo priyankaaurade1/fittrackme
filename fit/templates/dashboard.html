@@ -87,6 +87,11 @@
       max-width: 33.3333%;
     }
   }
+  .badge {
+  font-size: 0.9rem;
+  border-radius: 12px;
+  padding: 6px 10px;
+}
   @media (max-width: 576px) {
   .form-check-label, label {
     font-size: 0.95rem;
@@ -155,6 +160,33 @@
       </div>
     </div>
 
+    <!-- ⏰ Today’s Routine -->
+    <div class="card mb-4">
+      <div class="card-header bg-light fw-bold">⏰ Today’s Routine</div>
+      <div class="card-body">
+        {% if today_routines %}
+          <div class="list-group">
+            {% for r in today_routines %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ r.title }}</strong>
+                <small class="text-muted d-block">{{ r.time }} — {{ r.description }}</small>
+              </div>
+              <span class="badge 
+                {% if "left" in r.status %}bg-warning text-dark
+                {% elif "time" in r.status %}bg-danger
+                {% else %}bg-success{% endif %}">
+                {{ r.status }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted">No routine set for today yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- 🍽️ Diet Plan -->
     <div class="card mb-4">
       <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
@@ -196,18 +228,18 @@
       <div class="card-header bg-light fw-bold">💧 Water Intake</div>
       <div class="card-body">
         <div class="row row-cols-4 row-cols-md-6 text-center">
-          {% for i in water_glass_range %}
-          <div class="col">
-            <input type="checkbox" class="btn-check" name="water_{{ i }}" id="water_{{ i }}"
-                   {% if i in progress.water_glasses %}checked{% endif %}>
-            <label class="btn btn-outline-info w-100" for="water_{{ i }}">
-              {% if i in progress.water_glasses %}
-                {% if water_type == "bottle" %}🧴{% else %}🥛{% endif %}
-              {% else %}
-                {% if water_type == "bottle" %}🍼{% else %}🧊{% endif %}
-              {% endif %}
-            </label>
-          </div>
+          {% for i in water_unit_range %}
+            <div class="col">
+              <input type="checkbox" class="btn-check" name="water_{{ i }}" id="water_{{ i }}"
+                    {% if i in progress.water_glasses %}checked{% endif %}>
+              <label class="btn btn-outline-info w-100" for="water_{{ i }}">
+                {% if i in progress.water_glasses %}
+                  {% if water_type == "bottle" %}🧴{% else %}🥛{% endif %}
+                {% else %}
+                  {% if water_type == "bottle" %}🍼{% else %}🧊{% endif %}
+                {% endif %}
+              </label>
+            </div>
           {% endfor %}
         </div>
       </div>
@@ -332,5 +364,39 @@
       setTimeout(() => label.classList.remove("animate__animated", "animate__bounceIn"), 1000);
     });
   });
+</script>
+<script>
+  // 🌸 Browser Notifications for Routine Reminders
+document.addEventListener("DOMContentLoaded", () => {
+  if ("Notification" in window && Notification.permission !== "granted") {
+    Notification.requestPermission();
+  }
+
+  function showNotification(title, body) {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body: body, icon: "https://cdn-icons-png.flaticon.com/512/992/992700.png" });
+    }
+  }
+
+  // ⏰ Check for current routine
+  const routines = JSON.parse('{{ today_routines|safe|escapejs }}');
+  const now = new Date();
+
+  routines.forEach(r => {
+    const [hour, minute, period] = r.time.split(/[: ]/);
+    let h = parseInt(hour);
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    const routineTime = new Date();
+    routineTime.setHours(h, parseInt(minute), 0, 0);
+
+    // Notify 2 minutes before
+    const diff = (routineTime - now) / 1000 / 60;
+    if (diff <= 2 && diff > 0) {
+      showNotification("🔔 " + r.title, r.description || "Time to start your routine!");
+    }
+  });
+});
+
 </script>
 {% endblock %}

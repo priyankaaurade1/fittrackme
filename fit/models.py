@@ -65,3 +65,24 @@ class WeightEntry(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.weight} kg on {self.date}"
+
+from django.utils import timezone
+
+class DailyRoutine(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.time}"
+
+class DailyJournal(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField(default=timezone.now)
+    mood = models.CharField(max_length=50, blank=True, null=True)
+    note = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.date}"

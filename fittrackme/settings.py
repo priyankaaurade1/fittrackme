@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_crontab',
     'fit',
     'corsheaders'
 ]
@@ -131,4 +132,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/fit/'  
 LOGOUT_REDIRECT_URL = 'login'
+
+CRONJOBS = [
+    ('*/1 * * * *', 'fit.cron.send_routine_notifications'),  # check every 1 minute
+]
 

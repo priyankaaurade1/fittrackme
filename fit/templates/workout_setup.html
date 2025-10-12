@@ -1,36 +1,75 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-  <h2 class="text-center mb-4">Set Weekly Workout Plan</h2>
-  <form method="post" id="workout-form">
-    {% csrf_token %}
-    {% for day, exercises in workout_data %}
-      <div class="mb-3">
-        <label class="form-label d-flex justify-content-between">
-          {{ day }}
-          <button type="button" class="btn btn-sm btn-outline-success" onclick="addExerciseField('{{ day }}')">➕ Add</button>
-        </label>
-        <div id="{{ day|slugify }}-container">
-          {% for exercise in exercises %}
-          <input type="text" name="{{ day|slugify }}" class="form-control mb-2" value="{{ exercise }}">
-          {% empty %}
-          <input type="text" name="{{ day|slugify }}" class="form-control mb-2">
-          {% endfor %}
+<style>
+  .workout-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+  }
+  .workout-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  }
+  .form-label {
+    font-weight: 600;
+  }
+  .btn-outline-success {
+    border-radius: 8px;
+    padding: 2px 10px;
+  }
+  input.form-control {
+    border-radius: 8px;
+  }
+  .day-section {
+    margin-bottom: 25px;
+  }
+</style>
+
+<div class="container mt-4 mb-5">
+  <h2 class="text-center mb-4">💪 Set Weekly Workout Plan</h2>
+
+  <div class="workout-card">
+    <form method="post" id="workout-form">
+      {% csrf_token %}
+
+      {% for day, exercises in workout_data %}
+        <div class="day-section">
+          <label class="form-label d-flex justify-content-between align-items-center">
+            <span>{{ day }}</span>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="addExerciseField('{{ day }}')">➕ Add</button>
+          </label>
+
+          <div id="{{ day|slugify }}-container">
+            {% for exercise in exercises %}
+              <input type="text" name="{{ day|slugify }}" class="form-control mb-2" value="{{ exercise }}">
+            {% empty %}
+              <!-- No default empty field -->
+            {% endfor %}
+          </div>
         </div>
-      </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-primary w-100">Save Workout Plan</button>
-  </form>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-primary w-100 mt-3 shadow-sm">💾 Save Workout Plan</button>
+    </form>
+  </div>
 </div>
 
 <script>
+  // Add new input field when user clicks "Add"
   function addExerciseField(day) {
-    const container = document.getElementById(day.toLowerCase().replace(/ /g, '-') + '-container');
+    const containerId = day.toLowerCase().replace(/ /g, '-') + '-container';
+    const container = document.getElementById(containerId);
+
     const input = document.createElement('input');
     input.type = 'text';
     input.name = day.toLowerCase().replace(/ /g, '-');
     input.classList.add('form-control', 'mb-2');
+    input.placeholder = "Enter exercise name";
+
     container.appendChild(input);
+    input.focus();
   }
 </script>
 {% endblock %}

@@ -2,7 +2,6 @@
 {% block content %}
 <div class="container mt-4">
   <h2 class="text-center mb-4">📊 Health Analysis</h2>
-
   <form method="get" class="mb-3 text-end">
     <select name="range" class="form-select w-auto d-inline" onchange="this.form.submit()">
       <option value="day" {% if selected_range == 'day' %}selected{% endif %}>Today</option>
@@ -11,7 +10,6 @@
       <option value="year" {% if selected_range == 'year' %}selected{% endif %}>This Year</option>
     </select>
   </form>
-
   <div class="row">
     <div class="col-md-6">
       <h5>✅ Meal Completion</h5>
@@ -22,9 +20,7 @@
       <p>{{ workout_completion_percent }}% ({{ workout_days }} of {{ total_days }} days)</p>
     </div>
   </div>
-
   <hr>
-
   <div class="row mt-4">
     <div class="col-md-6">
       <h5>💧 Water Intake</h5>
@@ -34,20 +30,28 @@
         </p>
       <canvas id="waterChart" height="160"></canvas>
     </div>
-
     <div class="col-md-6">
       <h5>⚖️ Weight Progress</h5>
-      <p><strong>Start:</strong> {{ first_weight }} kg &nbsp;&nbsp; <strong>Current:</strong> {{ last_weight }} kg</p>
+      <p><strong>Start:</strong> {{ first_weight }} kg &nbsp;&nbsp; 
+        <strong>Current:</strong> {{ last_weight }} kg &nbsp;&nbsp;
+        <strong>Change:</strong> 
+        {% if weight_change > 0 %}
+            <span style="color:green">+{{ weight_change }} kg</span>
+        {% elif weight_change < 0 %}
+            <span style="color:red">{{ weight_change }} kg</span>
+        {% else %}
+            {{ weight_change }} kg
+        {% endif %}
+      </p>
       <canvas id="weightChart" height="160"></canvas>
     </div>
   </div>
+  
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   const waterCtx = document.getElementById('waterChart').getContext('2d');
   const weightCtx = document.getElementById('weightChart').getContext('2d');
-
   new Chart(waterCtx, {
     type: 'bar',
     data: {
@@ -76,7 +80,6 @@
       }
     }
   });
-
   new Chart(weightCtx, {
     type: 'line',
     data: {
