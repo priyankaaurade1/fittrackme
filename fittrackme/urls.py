@@ -23,6 +23,5 @@ urlpatterns = [
     path('', lambda request: redirect('dashboard')),  
     path('admin/', admin.site.urls),
     path('fit/', include('fit.urls')),  
-    path('', include('pwa.urls')),
 
 ]
