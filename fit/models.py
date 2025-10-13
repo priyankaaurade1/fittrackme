@@ -57,6 +57,7 @@ class DailyProgress(models.Model):
     completed_workouts = models.JSONField(default=list)
     water_glasses = models.JSONField(default=list)
     today_weight = models.FloatField(null=True, blank=True) 
+    completed_routines = models.JSONField(default=list) 
 
 class WeightEntry(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

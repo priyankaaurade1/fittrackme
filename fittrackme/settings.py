@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'fit',
-    'corsheaders'
+    'corsheaders',
+    'pwa',
 ]
 
 MIDDLEWARE = [
@@ -110,13 +111,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
+TIME_ZONE = 'Asia/Kolkata'
 USE_TZ = True
-
+USE_I18N = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -136,3 +133,23 @@ CRONJOBS = [
     ('*/1 * * * *', 'fit.cron.send_routine_notifications'),  # check every 1 minute
 ]
 
+PWA_APP_NAME = 'FitTrackMe'
+PWA_APP_SHORT_NAME = 'FitTrack'
+PWA_APP_DESCRIPTION = "Your daily fitness, diet, and routine tracker"
+PWA_APP_THEME_COLOR = '#38ef7d'
+PWA_APP_BACKGROUND_COLOR = '#ffffff'
+PWA_APP_DISPLAY = 'standalone'
+PWA_APP_SCOPE = '/'
+PWA_APP_START_URL = '/'
+PWA_APP_ICONS = [
+    {
+        'src': '/static/icons/icon-192x192.png',
+        'sizes': '192x192'
+    },
+    {
+        'src': '/static/icons/icon-512x512.png',
+        'sizes': '512x512'
+    }
+]
+PWA_APP_DIR = 'ltr'
+PWA_APP_LANG = 'en-US'

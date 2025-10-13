@@ -6,6 +6,8 @@ from django.utils.text import slugify
 from datetime import date, datetime, timedelta
 from django.db.models import Q
 from decimal import Decimal
+from django.conf import settings
+import pytz
 import json
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
@@ -135,31 +137,31 @@ def workout_setup(request):
 
 @login_required
 def dashboard(request):
-    # Ensure profile exists
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
-    required_fields = [profile.height_cm, profile.current_weight]
-    if not all(required_fields):
-        messages.info(request, "Please complete your profile setup.")
-        return redirect('profile')
-
-    # Ensure setup completion
-    if not DietPlan.objects.filter(user=request.user).exists():
-        return redirect('diet_setup')
-    if not WaterTarget.objects.filter(user=request.user).exists():
-        return redirect('water_setup')
-    if not WorkoutPlan.objects.filter(user=request.user).exists():
-        return redirect('workout_setup')
-
-    today = date.today()
-    weekday = today.strftime('%A')
     user = request.user
 
-    # Fetch user data
+    # ✅ Ensure profile exists
+    profile, created = UserProfile.objects.get_or_create(user=user)
+    if not profile.height_cm or not profile.current_weight:
+        messages.info(request, "Please complete your profile setup first.")
+        return redirect('profile')
+
+    # ✅ Ensure setup completion
+    if not DietPlan.objects.filter(user=user).exists():
+        return redirect('diet_setup')
+    if not WaterTarget.objects.filter(user=user).exists():
+        return redirect('water_setup')
+    if not WorkoutPlan.objects.filter(user=user).exists():
+        return redirect('workout_setup')
+
+    today = timezone.localdate()
+    weekday = today.strftime('%A')
+
+    # ✅ Query user data
     diet_qs = DietPlan.objects.filter(user=user)
     workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday)
     progress, _ = DailyProgress.objects.get_or_create(user=user, date=today)
 
-    # Water Target Logic
+    # ✅ Water setup
     water_target = WaterTarget.objects.filter(user=user).first()
     if water_target:
         water_type = water_target.measurement_type
@@ -171,54 +173,79 @@ def dashboard(request):
         water_unit = 250
         total_units = 8
 
-    # Handle POST (Save progress)
-    if request.method == 'POST':
+    # ✅ Handle POST (save progress)
+    if request.method == "POST":
         weight = request.POST.get("today_weight")
         if weight:
             progress.today_weight = Decimal(weight)
             WeightEntry.objects.update_or_create(
-                user=user, date=today,
-                defaults={"weight": Decimal(weight)}
+                user=user, date=today, defaults={"weight": Decimal(weight)}
             )
 
-        # Save meals
-        all_foods = [item.strip() for d in diet_qs for item in d.food_items.splitlines() if item.strip()]
-        selected_foods = [f for f in all_foods if f"food_{f.lower().replace(' ', '-')}" in request.POST]
+        # 🍽️ Save completed foods (checked boxes)
+        # ✅ Save all checked foods properly
+        selected_foods = [
+            v for k, v in request.POST.items()
+            if k.startswith("food_")
+        ]
         progress.completed_foods = selected_foods
 
-        # Save workouts
-        selected_workouts = [v for k, v in request.POST.items() if k.startswith("workout_")]
-        progress.completed_workouts = selected_workouts
+        # 🏋️ Save completed workouts
+        completed_workouts = [
+            v for k, v in request.POST.items() if k.startswith("workout_")
+        ]
+        progress.completed_workouts = completed_workouts
 
-        # Save water
-        selected_water = [i for i in range(1, total_units + 1) if f"water_{i}" in request.POST]
-        progress.water_glasses = selected_water
+        # 💧 Save water glasses
+        completed_water = [
+            i for i in range(1, total_units + 1)
+            if f"water_{i}" in request.POST
+        ]
+        progress.water_glasses = completed_water
+
+        # ⏰ Save completed routines (optional checkbox in UI)
+        completed_routines = [
+            r.title for r in DailyRoutine.objects.filter(user=user, is_active=True)
+            if f"routine_{r.id}" in request.POST
+        ]
+        progress.completed_routines = completed_routines
+
         progress.save()
-
+        messages.success(request, "✅ Progress saved successfully!")
         return redirect("dashboard")
 
-    # Prepare Diet + Workout Data
-    diet = {d.meal_time: [i.strip() for i in d.food_items.splitlines() if i.strip()] for d in diet_qs}
-    workouts = [w.strip() for w in workout_qs[0].exercises.splitlines()] if workout_qs.exists() else []
+    # ✅ Prepare diet and workouts for template
+    diet = {
+        d.meal_time: [i.strip() for i in d.food_items.splitlines() if i.strip()]
+        for d in diet_qs
+    }
+    workouts = [
+        w.strip() for w in workout_qs[0].exercises.splitlines()
+    ] if workout_qs.exists() else []
 
-    # Calculate Progress
-    total_items = len(workouts) + sum(len(v) for v in diet.values()) + total_units
-    completed_items = (
-        len(progress.completed_workouts or []) +
-        len(progress.completed_foods or []) +
-        len(progress.water_glasses or [])
+    # ✅ Calculate total progress %
+    total_items = (
+        len(workouts)
+        + sum(len(v) for v in diet.values())
+        + total_units
     )
-    progress_percent = int((completed_items / total_items) * 100) if total_items > 0 else 0
+    completed_items = (
+        len(progress.completed_workouts or [])
+        + len(progress.completed_foods or [])
+        + len(progress.water_glasses or [])
+    )
+    progress_percent = int((completed_items / total_items) * 100) if total_items else 0
 
-    # Weight History + BMI + Motivation
+    # ✅ Weight tracking
     recent_weights = list(WeightEntry.objects.filter(user=user).order_by('-date')[:7])[::-1]
     weights = [float(w.weight) for w in recent_weights]
     labels = [w.date.strftime("%d %b") for w in recent_weights]
     weight_diff = (
         round(float(recent_weights[-1].weight) - float(recent_weights[-2].weight), 1)
-        if len(recent_weights) >= 2 else None
+        if len(recent_weights) >= 2 else 0
     )
 
+    # ✅ BMI + Motivation
     bmi = profile.bmi
     if bmi:
         if bmi < 18.5:
@@ -235,35 +262,41 @@ def dashboard(request):
     user_height = profile.height_cm
     yesterday_weight = weights[-2] if len(weights) >= 2 else None
 
-    # ⏰ Today’s Routine Section
-    now = datetime.now().time()
+    # ✅ Timezone-safe routine handling
+    tz = pytz.timezone(getattr(settings, "TIME_ZONE", "Asia/Kolkata"))
+    now = timezone.now().astimezone(tz)
     routines = DailyRoutine.objects.filter(user=user, is_active=True).order_by('time')
 
     today_routines = []
     for r in routines:
-        time_diff = datetime.combine(today, r.time) - datetime.combine(today, now)
-        minutes_left = int(time_diff.total_seconds() // 60)
-        if minutes_left > 0:
-            status = f"{minutes_left} min left"
-        elif -30 <= minutes_left <= 0:
+        routine_time = datetime.combine(today, r.time)
+        routine_time = timezone.make_aware(routine_time, tz)
+        now_local = timezone.localtime(timezone.now(), tz)
+        diff_minutes = int((routine_time - now_local).total_seconds() / 60)
+
+        if diff_minutes > 0:
+            status = f"{diff_minutes} min left"
+        elif -30 <= diff_minutes <= 0:
             status = "⏰ It's time!"
         else:
             status = "✅ Done"
+
         today_routines.append({
+            "id": r.id,
             "title": r.title,
             "time": r.time.strftime("%I:%M %p"),
             "description": r.description,
             "status": status,
+            "is_done": r.title in (progress.completed_routines or [])
         })
 
-    # Final context
+    # ✅ Final context
     context = {
         'today': today,
         'diet': diet,
         'workouts': workouts,
         'progress': progress,
         'water_type': water_type,
-        'water_unit': water_unit,
         'total_units': total_units,
         'water_unit_range': range(1, total_units + 1),
         'progress_percent': progress_percent,
@@ -275,6 +308,7 @@ def dashboard(request):
         'user_height': user_height,
         'yesterday_weight': yesterday_weight,
         'today_routines': today_routines,
+        'timezone': str(tz),
     }
 
     return render(request, 'dashboard.html', context)

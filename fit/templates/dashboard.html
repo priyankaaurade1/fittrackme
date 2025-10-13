@@ -172,12 +172,16 @@
                 <strong>{{ r.title }}</strong>
                 <small class="text-muted d-block">{{ r.time }} — {{ r.description }}</small>
               </div>
-              <span class="badge 
-                {% if "left" in r.status %}bg-warning text-dark
-                {% elif "time" in r.status %}bg-danger
-                {% else %}bg-success{% endif %}">
-                {{ r.status }}
-              </span>
+
+              <div class="d-flex align-items-center">
+                <input type="checkbox" name="routine_{{ r.id }}" {% if r.is_done %}checked{% endif %}>
+                <span class="badge 
+                  {% if 'left' in r.status %}bg-warning text-dark
+                  {% elif 'time' in r.status %}bg-danger
+                  {% else %}bg-success{% endif %}">
+                  {{ r.status }}
+                </span>
+              </div>
             </div>
             {% endfor %}
           </div>
@@ -196,8 +200,9 @@
         <div class="row row-cols-2 row-cols-md-2 g-2 mb-3">
           {% for food in food_list %}
           <div class="col">
-            <input type="checkbox" name="food_{{ food|slugify }}" id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
-                   {% if food in progress.completed_foods %}checked{% endif %}>
+            <input type="checkbox" name="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" value="{{ food }}"
+              id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
+              {% if food in progress.completed_foods %}checked{% endif %}>
             <label for="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}">{{ food }}</label>
           </div>
           {% endfor %}
