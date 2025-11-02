@@ -15,7 +15,7 @@ urlpatterns = [
     path('analysis/', views.analysis, name='analysis'),
     path('', views.dashboard, name='dashboard'),  
     path('routine-setup/', views.routine_setup, name='routine_setup'),
-    path("routine/edit/", views.edit_routine, name="edit_routine"),
+    path("edit_routine/<int:routine_id>/", views.edit_routine, name="edit_routine"),
     path("routine/delete/<int:routine_id>/", views.delete_routine, name="delete_routine"),
 
     path('journal/', views.journal_view, name='journal_view'),
