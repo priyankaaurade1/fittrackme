@@ -1,114 +1,187 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-  <h2 class="text-center mb-4">📊 Health Analysis</h2>
-  <form method="get" class="mb-3 text-end">
-    <select name="range" class="form-select w-auto d-inline" onchange="this.form.submit()">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<style>
+  body { background: #f7fafc; }
+  h2,h5 { font-weight: 700; }
+  .card-analytic {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: transform 0.25s ease;
+  }
+  .card-analytic:hover { transform: translateY(-4px); }
+  .progress-ring { width: 100px; height: 100px; position: relative; }
+  .progress-ring svg { transform: rotate(-90deg); }
+  .progress-ring circle { fill: none; stroke-width: 10; stroke-linecap: round; }
+  .progress-ring .bg { stroke: #eee; }
+  .progress-ring .progress { stroke: url(#grad1); transition: stroke-dashoffset 1s ease; }
+  .progress-value {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-weight:700; font-size:1.2rem;
+  }
+  .chart-card canvas { height:220px!important; }
+</style>
+
+<div class="container mt-4 mb-5">
+  <h2 class="text-center mb-4">📈 Your Health Dashboard</h2>
+
+  <!-- Range Selector -->
+  <form method="get" class="text-center mb-4">
+    <select name="range" class="form-select d-inline w-auto fw-semibold" onchange="this.form.submit()">
       <option value="day" {% if selected_range == 'day' %}selected{% endif %}>Today</option>
       <option value="week" {% if selected_range == 'week' %}selected{% endif %}>This Week</option>
       <option value="month" {% if selected_range == 'month' %}selected{% endif %}>This Month</option>
       <option value="year" {% if selected_range == 'year' %}selected{% endif %}>This Year</option>
     </select>
   </form>
-  <div class="row">
-    <div class="col-md-6">
-      <h5>✅ Meal Completion</h5>
-      <p>{{ meal_completion_percent }}% ({{ meal_completed_days }} of {{ total_days }} days)</p>
-    </div>
-    <div class="col-md-6">
-      <h5>💪 Workout Completion</h5>
-      <p>{{ workout_completion_percent }}% ({{ workout_days }} of {{ total_days }} days)</p>
+  <!-- 🧠 Performance Insights -->
+  <div class="mt-5 animate__animated animate__fadeInUp">
+    <h4 class="text-center mb-3">🌟 Performance Insights</h4>
+    <div class="card shadow-sm border-0 p-4 bg-light">
+      {% for insight in insights %}
+        <div class="d-flex align-items-start mb-2">
+          <span class="me-2 fs-5">➡️</span>
+          <p class="mb-0">{{ insight }}</p>
+        </div>
+      {% empty %}
+        <p class="text-muted mb-0 text-center">No insights available for this period.</p>
+      {% endfor %}
     </div>
   </div>
-  <hr>
-  <div class="row mt-4">
-    <div class="col-md-6">
-      <h5>💧 Water Intake</h5>
-      <p>
-        Goal: {{ water_goal_liters }} L ({{ water_goal_glasses }} glasses)<br>
-        Average Intake: {{ average_water }} glasses
+  <!-- Overview Cards -->
+  <div class="row g-3 mb-4 text-center">
+    <div class="col-md-4">
+      <div class="card card-analytic p-3 bg-gradient bg-light animate__animated animate__fadeInUp">
+        <h5>🍽️ Meals</h5>
+        <div class="progress-ring mx-auto mt-2">
+          <svg width="100" height="100" data-percent="{{ meal_completion_percent }}">
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#6dd5ed"/><stop offset="100%" style="stop-color:#2193b0"/>
+              </linearGradient>
+            </defs>
+            <circle class="bg" cx="50" cy="50" r="45"/>
+            <circle class="progress" cx="50" cy="50" r="45" stroke-dasharray="282" stroke-dashoffset="282"/>
+          </svg>
+          <span class="progress-value">{{ meal_completion_percent }}%</span>
+        </div>
+        <p class="mt-2 small text-muted">{{ meal_completed_days }} of {{ total_days }} days</p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card card-analytic p-3 bg-gradient bg-light animate__animated animate__fadeInUp animate__delay-1s">
+        <h5>💪 Workouts</h5>
+        <div class="progress-ring mx-auto mt-2">
+          <svg width="100" height="100" data-percent="{{ workout_completion_percent }}">
+            <circle class="bg" cx="50" cy="50" r="45"/>
+            <circle class="progress" cx="50" cy="50" r="45" stroke-dasharray="282" stroke-dashoffset="282"/>
+          </svg>
+          <span class="progress-value">{{ workout_completion_percent }}%</span>
+        </div>
+        <p class="mt-2 small text-muted">{{ workout_days }} of {{ total_days }} days</p>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card card-analytic p-3 bg-gradient bg-light animate__animated animate__fadeInUp animate__delay-2s">
+        <h5>🕒 Daily Routine</h5>
+        <div class="progress-ring mx-auto mt-2">
+          <svg width="100" height="100" data-percent="{{ routine_completion_percent }}">
+            <circle class="bg" cx="50" cy="50" r="45"/>
+            <circle class="progress" cx="50" cy="50" r="45" stroke-dasharray="282" stroke-dashoffset="282"/>
+          </svg>
+          <span class="progress-value">{{ routine_completion_percent }}%</span>
+        </div>
+        <p class="mt-2 small text-muted">{{ routine_completed_days }} of {{ total_days }} days</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4">
+    <div class="col-md-6 chart-card">
+      <div class="card card-analytic p-3">
+        <h5 class="mb-2">💧 Water Intake</h5>
+        <p class="small text-muted">
+          Goal: {{ water_goal_liters }} L ({{ water_goal_glasses }} glasses) | Avg: {{ average_water }} glasses
         </p>
-      <canvas id="waterChart" height="160"></canvas>
+        <canvas id="waterChart"></canvas>
+      </div>
     </div>
-    <div class="col-md-6">
-      <h5>⚖️ Weight Progress</h5>
-      <p><strong>Start:</strong> {{ first_weight }} kg &nbsp;&nbsp; 
-        <strong>Current:</strong> {{ last_weight }} kg &nbsp;&nbsp;
-        <strong>Change:</strong> 
-        {% if weight_change > 0 %}
-            <span style="color:green">+{{ weight_change }} kg</span>
-        {% elif weight_change < 0 %}
-            <span style="color:red">{{ weight_change }} kg</span>
-        {% else %}
-            {{ weight_change }} kg
-        {% endif %}
-      </p>
-      <canvas id="weightChart" height="160"></canvas>
+
+    <div class="col-md-6 chart-card">
+      <div class="card card-analytic p-3">
+        <h5 class="mb-2">⚖️ Weight Progress</h5>
+        <p class="small text-muted">
+          Start: {{ first_weight }} kg | Current: {{ last_weight }} kg |
+          {% if weight_change > 0 %}
+            <span class="text-success fw-bold">+{{ weight_change }} kg</span>
+          {% elif weight_change < 0 %}
+            <span class="text-danger fw-bold">{{ weight_change }} kg</span>
+          {% else %}No Change{% endif %}
+        </p>
+        <canvas id="weightChart"></canvas>
+      </div>
     </div>
   </div>
-  
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const waterCtx = document.getElementById('waterChart').getContext('2d');
-  const weightCtx = document.getElementById('weightChart').getContext('2d');
-  new Chart(waterCtx, {
-    type: 'bar',
-    data: {
-      labels: {{ water_chart.labels|safe }},
-      datasets: [{
-        label: 'Glasses of Water',
-        data: {{ water_chart.data|safe }},
-        backgroundColor: '#4dabf7',
-        borderRadius: 5,
-        barThickness: 20
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Water Intake Progress (glasses)'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          suggestedMax: {{ water_goal_glasses|default:12 }}
-        }
-      }
-    }
-  });
-  new Chart(weightCtx, {
-    type: 'line',
-    data: {
-      labels: {{ weight_chart.labels|safe }},
-      datasets: [{
-        label: 'Weight (kg)',
-        data: {{ weight_chart.data|safe }},
-        borderColor: '#ff6384',
-        backgroundColor: 'rgba(255,99,132,0.2)',
-        tension: 0.3,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Weight Trend Over Time'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: false
-        }
-      }
-    }
-  });
+// 🎯 Animate the ring progress dynamically
+document.querySelectorAll('.progress-ring svg').forEach(svg => {
+  const percent = parseFloat(svg.dataset.percent || 0);
+  const circle = svg.querySelector('.progress');
+  const radius = circle.r.baseVal.value;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (circumference * percent / 100);
+  setTimeout(() => { circle.style.strokeDashoffset = offset; }, 300);
+});
+
+// 💧 Water Chart
+new Chart(document.getElementById('waterChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ water_chart.labels|safe }},
+    datasets: [{
+      label: 'Glasses',
+      data: {{ water_chart.data|safe }},
+      backgroundColor: 'rgba(77,171,247,0.6)',
+      borderColor: '#4dabf7',
+      borderWidth: 1,
+      borderRadius: 8,
+    }]
+  },
+  options: {
+    plugins: { legend:{display:false}, title:{display:true,text:'Water Intake'} },
+    scales: { y:{beginAtZero:true, suggestedMax: {{ water_goal_glasses|default:12 }} } }
+  }
+});
+
+// ⚖️ Weight Chart
+new Chart(document.getElementById('weightChart'), {
+  type: 'line',
+  data: {
+    labels: {{ weight_chart.labels|safe }},
+    datasets: [{
+      label: 'Weight (kg)',
+      data: {{ weight_chart.data|safe }},
+      borderColor: '#ff6b81',
+      backgroundColor: 'rgba(255,107,129,0.2)',
+      tension: 0.3,
+      fill: true,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }]
+  },
+  options: {
+    plugins: { legend:{display:false}, title:{display:true,text:'Weight Trend'} },
+    scales: { y:{beginAtZero:false} }
+  }
+});
 </script>
 {% endblock %}

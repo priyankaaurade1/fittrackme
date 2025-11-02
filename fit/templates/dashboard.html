@@ -106,6 +106,23 @@
 </style>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+{% if next_routine_summary %}
+<div class="alert alert-info shadow-sm p-3 mb-3 rounded-3 d-flex align-items-center justify-content-between">
+  <div>
+    <strong>🕓 Next:</strong> {{ next_routine_summary.title }}  
+    <small class="text-muted">({{ next_routine_summary.time }})</small><br>
+    <span class="fw-semibold">
+      <span id="next-start-label">Starts in </span>
+      <span id="next-start-countdown" data-start-ts="{{ next_routine_summary.start_ts }}">--</span>
+    </span>
+  </div>
+  <span class="badge bg-primary px-3 py-2">Upcoming</span>
+</div>
+{% else %}
+<div class="alert alert-secondary text-center fw-semibold shadow-sm rounded-3">
+  🎯 No upcoming routine for today — great job!
+</div>
+{% endif %}
 
 <div class="container mt-4">
   <h2 class="text-center mb-4 fs-4 fs-md-3">📅 Today's Plan – {{ today|date:"l, j M Y" }}</h2>
@@ -143,18 +160,28 @@
 
       <div class="col-md-4 mb-3 mb-md-0">
         <p id="weightDiffDisplay" class="mb-1 mt-4">
-          {% if weight_diff > 0 %}
-            <span style="color: green; font-weight: bold;font-size:x-large ;">↑</span> Gained <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+          {% if not progress.today_weight %}
+            <span style="color: gray;">⚖️ Please enter your weight to start tracking.</span>
+          {% elif yesterday_weight is None %}
+            <span style="color: gray;">📅 Not enough data yet to compare with yesterday.</span>
+          {% elif weight_diff > 0 %}
+            <span style="color: green; font-weight: bold; font-size:x-large;">↑</span>
+            Gained <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
           {% elif weight_diff < 0 %}
-            <span style="color: red; font-weight: bold;font-size:x-large">↓</span> Lost <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
+            <span style="color: red; font-weight: bold; font-size:x-large;">↓</span>
+            Lost <strong>{{ weight_diff|floatformat:1 }}</strong> kg since yesterday
           {% else %}
             <span style="color: gray;">→</span> No change since yesterday
           {% endif %}
         </p>
-        <p class="mb-1"><strong>🧮 BMI:</strong> <span id="bmiValue" class="fw-bold">{{ bmi|default:'--' }}</span></p>
-        <p class="text-muted small">{{ motivation }}</p>
-      </div>
 
+        <p class="mb-1">
+          <strong>🧮 BMI:</strong>
+          <span id="bmiValue" class="fw-bold animate__animated">{{ bmi|default:'--' }}</span>
+        </p>
+        <p id="motivationMsg" class="text-muted small">{{ motivation }}</p>
+        <div id="bmiEmoji" class="fs-2 mt-1 text-center"></div>
+      </div>
       <div class="col-md-4">
         <canvas id="weightChart" height="150"></canvas>
       </div>
@@ -162,31 +189,44 @@
 
     <!-- ⏰ Today’s Routine -->
     <div class="card mb-4">
-      <div class="card-header bg-light fw-bold">⏰ Today’s Routine</div>
-      <div class="card-body">
+      <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+        ⏰ Today's Routine
+        <small class="text-muted">Stay on track with your goals</small>
+      </div>
+
+      <div class="card-body" style="max-height: 280px; overflow-y: auto;">
         {% if today_routines %}
           <div class="list-group">
             {% for r in today_routines %}
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-              <div>
-                <strong>{{ r.title }}</strong>
-                <small class="text-muted d-block">{{ r.time }} — {{ r.description }}</small>
-              </div>
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ r.title }}</strong>
+                  <small class="text-muted d-block">{{ r.time }}</small>
+                </div>
 
-              <div class="d-flex align-items-center">
-                <input type="checkbox" name="routine_{{ r.id }}" {% if r.is_done %}checked{% endif %}>
-                <span class="badge 
-                  {% if 'left' in r.status %}bg-warning text-dark
-                  {% elif 'time' in r.status %}bg-danger
-                  {% else %}bg-success{% endif %}">
-                  {{ r.status }}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="checkbox" name="routine_{{ r.id }}" class="routine-checkbox"
+                        {% if r.is_done %}checked{% endif %}>
+
+                  {% if not r.is_done %}
+                    {% if r.status == "⏰ It's time!" %}
+                      <span class="badge bg-danger">⏰ It's time!</span>
+                    {% elif r.status %}
+                      <!-- store absolute timestamp for JS -->
+                      <span class="badge bg-warning text-dark countdown-timer"
+                            data-start-ts="{{ r.start_ts }}">
+                        ⏳ <span class="countdown-label">--</span>
+                      </span>
+                    {% endif %}
+                  {% else %}
+                    <span class="badge bg-success">✅ Done</span>
+                  {% endif %}
+                </div>
               </div>
-            </div>
             {% endfor %}
           </div>
         {% else %}
-          <p class="text-muted">No routine set for today yet.</p>
+          <p class="text-muted mb-0">No routines added for today yet.</p>
         {% endif %}
       </div>
     </div>
@@ -295,16 +335,22 @@
   const yesterdayWeight = parseFloat(document.getElementById('yesterday_weight').value);
   const bmiDisplay = document.getElementById('bmiValue');
   const weightDiffDisplay = document.getElementById('weightDiffDisplay');
+  const motivationMsg = document.getElementById('motivationMsg');
+  const bmiEmoji = document.getElementById('bmiEmoji');
 
+  // 🎯 Animated BMI + Live Motivation
   function updateLiveCalculations() {
     const weight = parseFloat(weightInput.value);
 
     if (!isNaN(weight)) {
+      // 🧮 Compute BMI
       if (!isNaN(height) && height > 0) {
         const bmi = weight / ((height / 100) ** 2);
-        bmiDisplay.textContent = bmi.toFixed(2);
+        animateBMI(bmiDisplay, parseFloat(bmiDisplay.textContent) || 0, bmi, 800);
+        updateMotivation(bmi);
       }
 
+      // ⚖️ Weight difference
       if (!isNaN(yesterdayWeight)) {
         const diff = weight - yesterdayWeight;
         let diffText = '';
@@ -316,13 +362,51 @@
         } else {
           diffText = `<span style="color:gray;">→</span> No change since yesterday`;
         }
-
         weightDiffDisplay.innerHTML = diffText;
       }
     } else {
       bmiDisplay.textContent = '--';
-      weightDiffDisplay.innerHTML = '';
+      motivationMsg.textContent = '🏁 Start by adding today’s weight to see your BMI and progress.';
+      bmiEmoji.innerHTML = '';
+      weightDiffDisplay.innerHTML = '<span style="color:gray;">⚖️ Please enter your weight to start tracking.</span>';
     }
+  }
+
+  // 🔢 Smooth number animation
+  function animateBMI(element, start, end, duration) {
+    const startTime = performance.now();
+    function animate(currentTime) {
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      const value = start + (end - start) * progress;
+      element.textContent = value.toFixed(2);
+      if (progress < 1) requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+    element.classList.add('animate__pulse');
+    setTimeout(() => element.classList.remove('animate__pulse'), 800);
+  }
+
+  // 💬 Smart motivation logic
+  function updateMotivation(bmi) {
+    let msg = '';
+    let emoji = '';
+
+    if (bmi < 18.5) {
+      msg = "You're underweight. Let’s build strength! 💪";
+      emoji = "💪";
+    } else if (bmi < 25) {
+      msg = "Healthy range! Keep it up! 🥗";
+      emoji = "🥗";
+    } else if (bmi < 30) {
+      msg = "Slightly overweight. Let's trim it down! 🏃";
+      emoji = "🏃";
+    } else {
+      msg = "Obese category. Take care of your health. ❤️";
+      emoji = "❤️";
+    }
+
+    motivationMsg.textContent = msg;
+    bmiEmoji.innerHTML = `<span class="animate__animated animate__heartBeat">${emoji}</span>`;
   }
 
   weightInput.addEventListener('input', updateLiveCalculations);
@@ -403,5 +487,72 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Helper: format seconds -> "Hh Mm Ss" or "Mm Ss"
+  function formatSeconds(totalSeconds) {
+    if (totalSeconds <= 0) return "0s";
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  }
+
+  // Routine list countdowns
+  const countdownBadges = document.querySelectorAll(".countdown-timer");
+  const updateAll = () => {
+    const now = Date.now();
+
+    // update list badges
+    countdownBadges.forEach(badge => {
+      const startTs = parseInt(badge.dataset.startTs, 10);
+      if (!startTs) return;
+
+      const diffSec = Math.floor((startTs - now) / 1000);
+      const label = badge.querySelector(".countdown-label");
+      if (diffSec > 0) {
+        label.textContent = formatSeconds(diffSec);
+        // keep warning style
+        badge.classList.remove("bg-danger");
+        badge.classList.add("bg-warning", "text-dark");
+      } else if (diffSec >= -30) {
+        // within 30 seconds past start -> show "It's time!"
+        badge.classList.remove("bg-warning", "text-dark");
+        badge.classList.add("bg-danger");
+        badge.textContent = "⏰ It's time!";
+      } else {
+        // past more than 30s and not checked -> hide badge (or show nothing)
+        badge.style.display = "none";
+      }
+    });
+
+    // update next routine summary
+    const nextLabelEl = document.getElementById("next-start-countdown");
+    if (nextLabelEl) {
+      const startTs = parseInt(nextLabelEl.dataset.startTs, 10);
+      if (startTs) {
+        const diffSec = Math.floor((startTs - now) / 1000);
+        if (diffSec > 0) {
+          nextLabelEl.textContent = formatSeconds(diffSec);
+        } else if (diffSec >= -30) {
+          nextLabelEl.textContent = "⏰ It's time!";
+        } else {
+          nextLabelEl.textContent = "Started";
+        }
+      }
+    }
+  };
+
+  // Run immediately and then every 1s for smooth ticking
+  updateAll();
+  setInterval(updateAll, 1000);
+});
 </script>
 {% endblock %}

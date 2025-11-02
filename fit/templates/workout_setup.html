@@ -15,7 +15,7 @@
   .form-label {
     font-weight: 600;
   }
-  .btn-outline-success {
+  .btn-outline-success, .btn-outline-danger, .btn-outline-secondary {
     border-radius: 8px;
     padding: 2px 10px;
   }
@@ -24,6 +24,14 @@
   }
   .day-section {
     margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+  }
+  .input-group .form-control {
+    border-radius: 8px 0 0 8px;
+  }
+  .input-group button {
+    border-radius: 0;
   }
 </style>
 
@@ -34,18 +42,34 @@
     <form method="post" id="workout-form">
       {% csrf_token %}
 
-      {% for day, exercises in workout_data %}
+      {% for day, title, exercises in workout_data %}
         <div class="day-section">
           <label class="form-label d-flex justify-content-between align-items-center">
             <span>{{ day }}</span>
-            <button type="button" class="btn btn-sm btn-outline-success" onclick="addExerciseField('{{ day }}')">➕ Add</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="addExerciseField('{{ day }}')">➕ Add Exercise</button>
           </label>
+
+          <!-- Editable title -->
+          <div class="mb-2">
+            <input type="text" style="font-weight: 600;font-size: large;" name="{{ day|slugify }}_title" value="{{ title }}" 
+                   placeholder="e.g. Glute Growth Focus" class="form-control mb-2" />
+          </div>
 
           <div id="{{ day|slugify }}-container">
             {% for exercise in exercises %}
-              <input type="text" name="{{ day|slugify }}" class="form-control mb-2" value="{{ exercise }}">
+              <div class="input-group mb-2 animate__animated animate__fadeIn">
+                <input type="text" name="{{ day|slugify }}" class="form-control" value="{{ exercise }}" readonly>
+
+                <!-- Edit button -->
+                <button type="button" class="btn btn-outline-secondary edit-exercise-btn" title="Edit"
+                        data-day="{{ day }}" data-original="{{ exercise }}">✏️</button>
+
+                <!-- Delete button -->
+                <button type="button" class="btn btn-outline-danger delete-exercise-btn"
+                        data-day="{{ day }}" data-exercise="{{ exercise }}">🗑</button>
+              </div>
             {% empty %}
-              <!-- No default empty field -->
+              <!-- No exercises -->
             {% endfor %}
           </div>
         </div>
@@ -56,20 +80,119 @@
   </div>
 </div>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
 <script>
-  // Add new input field when user clicks "Add"
-  function addExerciseField(day) {
+document.addEventListener("DOMContentLoaded", () => {
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  // 🗑 DELETE workout
+  document.querySelectorAll(".delete-exercise-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const day = btn.dataset.day;
+      const exercise = btn.dataset.exercise;
+
+      if (confirm(`Delete "${exercise}" from ${day}'s workout plan?`)) {
+        fetch("{% url 'delete_workout_item' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrfToken,
+          },
+          body: new URLSearchParams({ day, exercise }),
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const wrapper = btn.closest(".input-group");
+            wrapper.classList.add("animate__fadeOut");
+            setTimeout(() => wrapper.remove(), 300);
+          } else {
+            alert("Error: " + (data.error || "Unable to delete item."));
+          }
+        })
+        .catch(() => alert("Something went wrong!"));
+      }
+    });
+  });
+
+  // ✏️ EDIT workout inline
+  document.querySelectorAll(".edit-exercise-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const input = btn.closest(".input-group").querySelector("input");
+      const originalValue = btn.dataset.original;
+      const day = btn.dataset.day;
+
+      if (btn.textContent === "✏️") {
+        // Switch to edit mode
+        input.removeAttribute("readonly");
+        input.focus();
+        btn.textContent = "✅";
+        btn.classList.remove("btn-outline-secondary");
+        btn.classList.add("btn-outline-success");
+      } else {
+        // Save edited value
+        const newValue = input.value.trim();
+        if (newValue && newValue !== originalValue) {
+          fetch("{% url 'delete_workout_item' %}", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRFToken": csrfToken,
+            },
+            body: new URLSearchParams({
+              day: day,
+              exercise: originalValue
+            }),
+          }).then(() => {
+            // Add updated exercise (simulate replace)
+            fetch("", { method: "POST" }); // optional, full save handled via form submit
+          });
+          btn.dataset.original = newValue;
+        }
+        input.setAttribute("readonly", true);
+        btn.textContent = "✏️";
+        btn.classList.remove("btn-outline-success");
+        btn.classList.add("btn-outline-secondary");
+      }
+    });
+  });
+
+  // ➕ ADD new exercise dynamically
+  window.addExerciseField = function(day) {
     const containerId = day.toLowerCase().replace(/ /g, '-') + '-container';
     const container = document.getElementById(containerId);
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.name = day.toLowerCase().replace(/ /g, '-');
-    input.classList.add('form-control', 'mb-2');
-    input.placeholder = "Enter exercise name";
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("input-group", "mb-2", "animate__animated", "animate__fadeIn");
 
-    container.appendChild(input);
+    const input = document.createElement("input");
+    input.type = "text";
+    input.name = day.toLowerCase().replace(/ /g, '-');
+    input.placeholder = "Enter exercise name";
+    input.classList.add("form-control");
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.classList.add("btn", "btn-outline-secondary");
+    editBtn.innerHTML = "✏️";
+    editBtn.addEventListener("click", () => {
+      input.removeAttribute("readonly");
+      input.focus();
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.classList.add("btn", "btn-outline-danger");
+    deleteBtn.innerHTML = "🗑";
+    deleteBtn.addEventListener("click", () => wrapper.remove());
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(editBtn);
+    wrapper.appendChild(deleteBtn);
+    container.appendChild(wrapper);
     input.focus();
-  }
+  };
+});
 </script>
 {% endblock %}

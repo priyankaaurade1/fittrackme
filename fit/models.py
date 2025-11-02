@@ -29,8 +29,12 @@ DAYS_OF_WEEK = [
 
 class DietPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    day = models.CharField(max_length=10, choices=DAYS_OF_WEEK, default="Monday")  # NEW FIELD
     meal_time = models.CharField(max_length=50)
     food_items = models.TextField()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.day} - {self.meal_time}"
 
 class WaterTarget(models.Model):
     MEASUREMENT_CHOICES = [
@@ -47,6 +51,7 @@ class WaterTarget(models.Model):
 class WorkoutPlan(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     day = models.CharField(max_length=10, choices=DAYS_OF_WEEK)
+    title = models.CharField(max_length=100, blank=True, null=True)
     exercises = models.TextField()
 
 class DailyProgress(models.Model):
@@ -69,15 +74,19 @@ class WeightEntry(models.Model):
 
 from django.utils import timezone
 
+# models.py
+
 class DailyRoutine(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
-    time = models.TimeField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    days = models.JSONField(default=list)  # ["Monday", "Tuesday", ...]
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.title} - {self.time}"
+        return f"{self.title} ({self.start_time.strftime('%I:%M %p')} - {self.end_time.strftime('%I:%M %p')})"
 
 class DailyJournal(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

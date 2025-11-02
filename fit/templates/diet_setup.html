@@ -16,7 +16,7 @@
     font-weight: 600;
     font-size: 1.1rem;
   }
-  .btn-outline-primary {
+  .btn-outline-primary, .btn-outline-danger, .btn-outline-secondary {
     border-radius: 8px;
     padding: 2px 10px;
   }
@@ -25,6 +25,12 @@
   }
   .meal-section {
     margin-bottom: 25px;
+  }
+  .input-group .form-control {
+    border-radius: 8px 0 0 8px;
+  }
+  .input-group button {
+    border-radius: 0;
   }
 </style>
 
@@ -46,7 +52,16 @@
             {% with food_string|default:'' as food_line %}
               {% for item in food_line.splitlines %}
                 {% if item %}
-                  <input type="text" name="{{ meal|slugify }}_item_{{ forloop.counter }}" class="form-control mb-2" value="{{ item }}">
+                  <div class="input-group mb-2 animate__animated animate__fadeIn">
+                    <input type="text" name="{{ meal|slugify }}_item_{{ forloop.counter }}" 
+                           class="form-control" value="{{ item }}" readonly>
+
+                    <button type="button" class="btn btn-outline-secondary edit-btn"
+                            data-meal="{{ meal }}" data-original="{{ item }}">✏️</button>
+
+                    <button type="button" class="btn btn-outline-danger remove-btn"
+                            data-meal="{{ meal }}" data-food="{{ item }}">🗑</button>
+                  </div>
                 {% endif %}
               {% endfor %}
             {% endwith %}
@@ -59,27 +74,119 @@
   </div>
 </div>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const addButtons = document.querySelectorAll(".add-btn");
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-  addButtons.forEach(button => {
+  // 🗑 DELETE food item from DB via AJAX
+  document.querySelectorAll(".remove-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const meal = btn.dataset.meal;
+      const food = btn.dataset.food;
+
+      if (confirm(`Delete "${food}" from ${meal}?`)) {
+        fetch("{% url 'delete_diet_item' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrfToken,
+          },
+          body: new URLSearchParams({ meal_time: meal, food_item: food }),
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const wrapper = btn.closest(".input-group");
+            wrapper.classList.add("animate__fadeOut");
+            setTimeout(() => wrapper.remove(), 300);
+          } else {
+            alert("Error: " + (data.error || "Unable to delete item."));
+          }
+        })
+        .catch(() => alert("Something went wrong!"));
+      }
+    });
+  });
+
+  // ✏️ EDIT food item inline
+  document.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const input = btn.closest(".input-group").querySelector("input");
+      const meal = btn.dataset.meal;
+      const originalValue = btn.dataset.original;
+
+      if (btn.textContent === "✏️") {
+        // Switch to edit mode
+        input.removeAttribute("readonly");
+        input.focus();
+        btn.textContent = "✅";
+        btn.classList.remove("btn-outline-secondary");
+        btn.classList.add("btn-outline-success");
+      } else {
+        // Save edited value
+        const newValue = input.value.trim();
+        if (newValue && newValue !== originalValue) {
+          // Delete old + re-add new
+          fetch("{% url 'delete_diet_item' %}", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRFToken": csrfToken,
+            },
+            body: new URLSearchParams({
+              meal_time: meal,
+              food_item: originalValue
+            }),
+          }).then(() => {
+            // Add new entry (temporary local update, DB updates on Save)
+            btn.dataset.original = newValue;
+          });
+        }
+        input.setAttribute("readonly", true);
+        btn.textContent = "✏️";
+        btn.classList.remove("btn-outline-success");
+        btn.classList.add("btn-outline-secondary");
+      }
+    });
+  });
+
+  // ➕ ADD new item dynamically
+  document.querySelectorAll(".add-btn").forEach(button => {
     button.addEventListener("click", () => {
       const mealSlug = button.dataset.meal;
       const container = document.getElementById(`${mealSlug}-group`);
+      const count = container.querySelectorAll(".input-group").length + 1;
 
-      // Create new input field dynamically
-      const count = container.querySelectorAll("input").length + 1;
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("input-group", "mb-2", "animate__animated", "animate__fadeIn");
+
       const input = document.createElement("input");
       input.type = "text";
       input.name = `${mealSlug}_item_${count}`;
       input.placeholder = `Food item for ${mealSlug.replace('-', ' ')}`;
-      input.classList.add("form-control", "mb-2");
+      input.classList.add("form-control");
 
-      // Add slight animation for a smoother feel
-      input.style.opacity = 0;
-      container.appendChild(input);
-      setTimeout(() => (input.style.opacity = 1), 100);
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.classList.add("btn", "btn-outline-secondary");
+      editBtn.innerHTML = "✏️";
+      editBtn.addEventListener("click", () => {
+        input.removeAttribute("readonly");
+        input.focus();
+      });
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.classList.add("btn", "btn-outline-danger");
+      deleteBtn.innerHTML = "🗑";
+      deleteBtn.addEventListener("click", () => wrapper.remove());
+
+      wrapper.appendChild(input);
+      wrapper.appendChild(editBtn);
+      wrapper.appendChild(deleteBtn);
+      container.appendChild(wrapper);
       input.focus();
     });
   });
