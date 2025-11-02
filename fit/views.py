@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login
+from datetime import time
 
 def auth_combined_view(request):
     login_form = AuthenticationForm()
@@ -44,6 +45,95 @@ def auth_combined_view(request):
         'login_form': login_form,
         'register_form': register_form,
     })
+
+def auto_sync_routines(user):
+    """
+    Auto-create or update routines from user's diet & workout plans.
+    Safely avoids duplicates using title + start_time + end_time.
+    """
+    from datetime import time
+    from django.utils.timezone import now
+    from .models import DietPlan, WorkoutPlan, DailyRoutine
+
+    diet_plans = DietPlan.objects.filter(user=user)
+    workouts = WorkoutPlan.objects.filter(user=user)
+
+    # Utility: suggest default meal/workout times (customizable)
+    def suggest_meal_time(meal_name):
+        meal_name = meal_name.lower()
+        if "waking" in meal_name:
+            return time(4, 50), time(5, 0)
+        elif "pre" in meal_name:
+            return time(5, 0), time(5, 30)
+        elif "post" in meal_name:
+            return time(6, 30), time(6, 45)
+        elif "breakfast" in meal_name:
+            return time(8, 15), time(8, 45)
+        elif "lunch" in meal_name:
+            return time(13, 30), time(14, 0)
+        elif "evening" in meal_name:
+            return time(16, 45), time(17, 0)
+        elif "dinner" in meal_name:
+            return time(20, 30), time(21, 0)
+        elif "bed" in meal_name:
+            return time(21, 30), time(22, 0)
+        return time(7, 0), time(7, 15)
+
+    # 🥗 Diet → Routine
+    for d in diet_plans:
+        title = d.meal_time.strip()
+        start, end = suggest_meal_time(d.meal_time)
+        DailyRoutine.objects.update_or_create(
+            user=user,
+            title=title,
+            start_time=start,  # 👈 uniquely identifies per title+time
+            end_time=end,
+            defaults={
+                "description": f"{d.day} diet: {d.food_items[:150]}...",
+                "days": [d.day],
+                "is_active": True,
+                "is_auto": True,
+            },
+        )
+
+    # 💪 Workout → Routine
+    for w in workouts:
+        title = f"Workout – {w.title or w.day}"
+        # default workout time suggestion
+        start_time, end_time = time(5, 30), time(6, 0)
+        DailyRoutine.objects.update_or_create(
+            user=user,
+            title=title,
+            start_time=start_time,
+            end_time=end_time,
+            defaults={
+                "description": (w.exercises or "")[:150],
+                "days": [w.day],
+                "is_active": True,
+                "is_auto": True,
+            },
+        )
+
+    # 🧹 Optional cleanup: remove old auto-generated routines
+    linked_titles = (
+        list(diet_plans.values_list("meal_time", flat=True))
+        + [f"Workout – {w.title or w.day}" for w in workouts]
+    )
+    DailyRoutine.objects.filter(user=user, is_auto=True).exclude(title__in=linked_titles).delete()
+
+def suggest_meal_time(meal_name):
+    """Returns default time slots for each meal"""
+    mapping = {
+        "Waking Snack": (time(4,50), time(5,0)),
+        "Pre-workout Snack": (time(5,0), time(5,30)),
+        "Post-workout snack": (time(6,30), time(6,45)),
+        "Breakfast": (time(8,15), time(8,45)),
+        "Lunch": (time(13,30), time(14,0)),
+        "Evening Snack": (time(16,45), time(17,0)),
+        "Dinner": (time(20,30), time(21,0)),
+        "Before Bed": (time(21,30), time(22,0)),
+    }
+    return mapping.get(meal_name, (time(12,0), time(12,30)))
 
 @login_required
 def water_setup(request):
@@ -238,7 +328,7 @@ def delete_workout_item(request):
 @login_required
 def dashboard(request):
     user = request.user
-
+    auto_sync_routines(user)
     # ✅ Ensure profile exists
     profile, created = UserProfile.objects.get_or_create(user=user)
     if not profile.height_cm or not profile.current_weight:
@@ -374,52 +464,43 @@ def dashboard(request):
     today = timezone.localdate()
     weekday = today.strftime('%A')
 
-    all_routines = DailyRoutine.objects.filter(user=user, is_active=True).order_by('start_time')
+    # Fetch all user routines
+    all_routines = DailyRoutine.objects.filter(user=user).order_by("start_time")
+
+    # Manually filter for today's weekday
     routines = [r for r in all_routines if weekday in (r.days or [])]
 
+    # Format each routine for display
     today_routines = []
-    next_routine = None
-    next_diff = float('inf')
-
     for r in routines:
-        # compute server-side aware datetime for the start_time
-        routine_dt = datetime.combine(today, r.start_time)
-        routine_dt = timezone.make_aware(routine_dt, tz)
-        now_local = timezone.localtime(timezone.now(), tz)
-        diff_seconds = int((routine_dt - now_local).total_seconds())
-
-        # status: store None / "it's time" / positive seconds (not minutes)
-        if diff_seconds > 0:
-            status = diff_seconds  # seconds left (absolute)
-            if diff_seconds < next_diff:
-                next_diff = diff_seconds
-                next_routine = r
-        elif -30 * 60 <= diff_seconds <= 0:
-            status = "⏰ It's time!"
-        else:
-            status = None
-
+        start_ts = datetime.combine(today, r.start_time)
         today_routines.append({
             "id": r.id,
             "title": r.title,
-            "time": f"{r.start_time.strftime('%I:%M %p')} - {r.end_time.strftime('%I:%M %p')}",
-            "description": r.description,
-            # pass absolute timestamp in milliseconds for client-side calculations
-            "start_ts": int(routine_dt.timestamp() * 1000),
-            "status": status,
-            "is_done": r.title in (progress.completed_routines or [])
+            "time": f"{r.start_time.strftime('%I:%M %p')} - {r.end_time.strftime('%I:%M %p')} (IST)",  # 👈 Added IST tag
+            "description": r.description or "",
+            "start_ts": int(tz.localize(start_ts).timestamp() * 1000),  # 👈 localized timestamp
+            "is_done": False,
         })
 
-    # Next upcoming summary (pass start_ts as well)
+    # Find next upcoming routine (in IST)
+    now = timezone.localtime().astimezone(tz)
+    next_routine = None
+    for r in routines:
+        start_dt = tz.localize(datetime.combine(today, r.start_time))
+        if start_dt > now:
+            next_routine = r
+            break
+
     next_routine_summary = None
     if next_routine:
-        next_time_str = f"{next_routine.start_time.strftime('%I:%M %p')} - {next_routine.end_time.strftime('%I:%M %p')}"
+        start_dt = tz.localize(datetime.combine(today, next_routine.start_time))
         next_routine_summary = {
             "title": next_routine.title,
-            "time": next_time_str,
-            "start_ts": int(datetime.combine(today, next_routine.start_time).astimezone(tz).timestamp() * 1000),
-            "desc": next_routine.description or ""
+            "time": f"{next_routine.start_time.strftime('%I:%M %p')} - {next_routine.end_time.strftime('%I:%M %p')} (IST)",  # 👈 Added IST
+            "start_ts": int(start_dt.timestamp() * 1000)
         }
+
     # ✅ Final context
     context = {
         'today': today,
@@ -583,37 +664,95 @@ def profile(request):
         'profile': profile,
     })
 
+import json
 @login_required
 def routine_setup(request):
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+    # 🥗 Fetch diet and workout data
+    diet_plans = DietPlan.objects.filter(user=request.user)
+    workout_plans = WorkoutPlan.objects.filter(user=request.user)
+
+    diet_data = {}
+    for d in diet_plans:
+        diet_data.setdefault(d.day, {})[d.meal_time] = [f.strip() for f in d.food_items.splitlines() if f.strip()]
+
+    workout_data = {}
+    for w in workout_plans:
+        workout_data[w.day] = {
+            "title": getattr(w, "title", w.day),
+            "exercises": [e.strip() for e in w.exercises.splitlines() if e.strip()]
+        }
+
+    # 🧾 Handle POST — Save routine
     if request.method == "POST":
+        title = request.POST.get("title", "").strip()
+        start_time = request.POST.get("start_time")
+        end_time = request.POST.get("end_time")
+        days = request.POST.getlist("days")
+        diet_items = request.POST.get("diet_items", "").strip()
+        workout_items = request.POST.get("workout_items", "").strip()
+
+        # Ensure required fields are present
+        if not title or not start_time or not end_time or not days:
+            messages.error(request, "⚠️ Please fill all required fields.")
+            return redirect("routine_setup")
+
+        # 🧩 Combine diet/workout into description
+        description = ""
+        if diet_items:
+            description += f"Diet:\n{diet_items}\n\n"
+        if workout_items:
+            description += f"Workout:\n{workout_items}"
+
+        try:
+            DailyRoutine.objects.create(
+                user=request.user,
+                title=title,
+                start_time=start_time,
+                end_time=end_time,
+                days=days,  # ✅ Stored as JSON
+                description=description.strip(),
+            )
+            messages.success(request, "✅ Routine saved successfully!")
+        except Exception as e:
+            messages.error(request, f"❌ Error saving routine: {e}")
+
+        return redirect("routine_setup")
+
+    # Fetch routines for display
+    routines = DailyRoutine.objects.filter(user=request.user).order_by("start_time")
+
+    return render(request, "routine_setup.html", {
+        "weekdays": weekdays,
+        "routines": routines,
+        "diet_data": json.dumps(diet_data),
+        "workout_data": json.dumps(workout_data),
+    })
+
+@login_required
+def edit_routine(request):
+    if request.method == "POST":
+        rid = request.POST.get("routine_id")
         title = request.POST.get("title")
-        description = request.POST.get("description")
         start_time = request.POST.get("start_time")
         end_time = request.POST.get("end_time")
         days = request.POST.getlist("days")
 
-        if not title or not start_time or not end_time or not days:
-            messages.error(request, "⚠️ Please fill all fields and select at least one day.")
+        try:
+            routine = DailyRoutine.objects.get(id=rid, user=request.user, is_auto=False)
+        except DailyRoutine.DoesNotExist:
+            messages.error(request, "⚠️ Routine not found or cannot be edited.")
             return redirect("routine_setup")
 
-        DailyRoutine.objects.create(
-            user=request.user,
-            title=title,
-            description=description,
-            start_time=start_time,
-            end_time=end_time,
-            days=days
-        )
-        messages.success(request, "✅ Routine added successfully!")
-        return redirect("routine_setup")
+        routine.title = title
+        routine.start_time = start_time
+        routine.end_time = end_time
+        routine.days = days
+        routine.save()
 
-    routines = DailyRoutine.objects.filter(user=request.user).order_by("start_time")
-    return render(request, "routine_setup.html", {
-        "routines": routines,
-        "weekdays": weekdays
-    })
+        messages.success(request, "✏️ Routine updated successfully!")
+    return redirect("routine_setup")
 
 @login_required
 def edit_routine(request):

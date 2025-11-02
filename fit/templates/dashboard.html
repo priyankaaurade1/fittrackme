@@ -206,7 +206,7 @@
 
                 <div class="d-flex align-items-center gap-2">
                   <input type="checkbox" name="routine_{{ r.id }}" class="routine-checkbox"
-                        {% if r.is_done %}checked{% endif %}>
+                    {% if r.is_done %}checked{% endif %}>
 
                   {% if not r.is_done %}
                     {% if r.status == "⏰ It's time!" %}

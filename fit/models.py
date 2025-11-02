@@ -84,6 +84,7 @@ class DailyRoutine(models.Model):
     end_time = models.TimeField()
     days = models.JSONField(default=list)  # ["Monday", "Tuesday", ...]
     is_active = models.BooleanField(default=True)
+    is_auto = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} ({self.start_time.strftime('%I:%M %p')} - {self.end_time.strftime('%I:%M %p')})"
