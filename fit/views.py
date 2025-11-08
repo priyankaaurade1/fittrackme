@@ -328,7 +328,6 @@ def delete_workout_item(request):
 @login_required
 def dashboard(request):
     user = request.user
-    auto_sync_routines(user)
     # ✅ Ensure profile exists
     profile, created = UserProfile.objects.get_or_create(user=user)
     if not profile.height_cm or not profile.current_weight:
@@ -427,6 +426,7 @@ def dashboard(request):
         len(progress.completed_workouts or [])
         + len(progress.completed_foods or [])
         + len(progress.water_glasses or [])
+        + len(progress.completed_routines or [])
     )
     progress_percent = int((completed_items / total_items) * 100) if total_items else 0
 
@@ -464,23 +464,28 @@ def dashboard(request):
     today = timezone.localdate()
     weekday = today.strftime('%A')
 
-    # Fetch all user routines
-    all_routines = DailyRoutine.objects.filter(user=user).order_by("start_time")
+    # Fetch all user routines for today
+    all_routines = DailyRoutine.objects.filter(
+        user=request.user,
+        is_active=True,
+        is_auto=False
+    )
 
-    # Manually filter for today's weekday
+    # Filter those whose "days" include today's weekday
     routines = [r for r in all_routines if weekday in (r.days or [])]
 
     # Format each routine for display
     today_routines = []
     for r in routines:
         start_ts = datetime.combine(today, r.start_time)
+        is_done = r.title in (progress.completed_routines or [])
         today_routines.append({
             "id": r.id,
             "title": r.title,
-            "time": f"{r.start_time.strftime('%I:%M %p')} - {r.end_time.strftime('%I:%M %p')} (IST)",  # 👈 Added IST tag
+            "time": f"{r.start_time.strftime('%I:%M %p')} - {r.end_time.strftime('%I:%M %p')} (IST)",
             "description": r.description or "",
-            "start_ts": int(tz.localize(start_ts).timestamp() * 1000),  # 👈 localized timestamp
-            "is_done": False,
+            "start_ts": int(tz.localize(start_ts).timestamp() * 1000),
+            "is_done": is_done,
         })
 
     # Find next upcoming routine (in IST)
@@ -504,9 +509,9 @@ def dashboard(request):
     # ✅ Final context
     context = {
         'today': today,
-        'diet': diet,
-        'workouts': workouts,
-        'progress': progress,
+        'diet': diet or {},
+        'workouts': workouts or [],
+        'progress': progress or {},
         'water_type': water_type,
         'total_units': total_units,
         'water_unit_range': range(1, total_units + 1),
@@ -518,9 +523,8 @@ def dashboard(request):
         'motivation': motivation,
         'user_height': user_height,
         'yesterday_weight': yesterday_weight,
-        'today_routines': today_routines,
+        'today_routines': today_routines or [],
         'timezone': str(tz),
-        'today_routines': today_routines,
         'next_routine_summary': next_routine_summary,
     }
 
@@ -669,41 +673,17 @@ import json
 def routine_setup(request):
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-    # 🥗 Fetch diet and workout data
-    diet_plans = DietPlan.objects.filter(user=request.user)
-    workout_plans = WorkoutPlan.objects.filter(user=request.user)
-
-    diet_data = {}
-    for d in diet_plans:
-        diet_data.setdefault(d.day, {})[d.meal_time] = [f.strip() for f in d.food_items.splitlines() if f.strip()]
-
-    workout_data = {}
-    for w in workout_plans:
-        workout_data[w.day] = {
-            "title": getattr(w, "title", w.day),
-            "exercises": [e.strip() for e in w.exercises.splitlines() if e.strip()]
-        }
-
     # 🧾 Handle POST — Save routine
     if request.method == "POST":
         title = request.POST.get("title", "").strip()
         start_time = request.POST.get("start_time")
         end_time = request.POST.get("end_time")
         days = request.POST.getlist("days")
-        diet_items = request.POST.get("diet_items", "").strip()
-        workout_items = request.POST.get("workout_items", "").strip()
 
         # Ensure required fields are present
         if not title or not start_time or not end_time or not days:
             messages.error(request, "⚠️ Please fill all required fields.")
             return redirect("routine_setup")
-
-        # 🧩 Combine diet/workout into description
-        description = ""
-        if diet_items:
-            description += f"Diet:\n{diet_items}\n\n"
-        if workout_items:
-            description += f"Workout:\n{workout_items}"
 
         try:
             DailyRoutine.objects.create(
@@ -711,8 +691,8 @@ def routine_setup(request):
                 title=title,
                 start_time=start_time,
                 end_time=end_time,
-                days=days,  # ✅ Stored as JSON
-                description=description.strip(),
+                days=days,  # Stored as JSON
+                description=f"Custom routine: {title}",
             )
             messages.success(request, "✅ Routine saved successfully!")
         except Exception as e:
@@ -720,63 +700,27 @@ def routine_setup(request):
 
         return redirect("routine_setup")
 
-    # Fetch routines for display
-    routines = DailyRoutine.objects.filter(user=request.user).order_by("start_time")
+    # Fetch only user routines
+    routines = DailyRoutine.objects.filter(user=request.user, is_auto=False).order_by("start_time")
 
     return render(request, "routine_setup.html", {
         "weekdays": weekdays,
         "routines": routines,
-        "diet_data": json.dumps(diet_data),
-        "workout_data": json.dumps(workout_data),
     })
 
 @login_required
-def edit_routine(request):
+def edit_routine(request, routine_id):
     if request.method == "POST":
-        rid = request.POST.get("routine_id")
-        title = request.POST.get("title")
-        start_time = request.POST.get("start_time")
-        end_time = request.POST.get("end_time")
-        days = request.POST.getlist("days")
-
         try:
-            routine = DailyRoutine.objects.get(id=rid, user=request.user, is_auto=False)
+            routine = DailyRoutine.objects.get(id=routine_id, user=request.user)
         except DailyRoutine.DoesNotExist:
             messages.error(request, "⚠️ Routine not found or cannot be edited.")
             return redirect("routine_setup")
 
-        routine.title = title
-        routine.start_time = start_time
-        routine.end_time = end_time
-        routine.days = days
-        routine.save()
-
-        messages.success(request, "✏️ Routine updated successfully!")
-    return redirect("routine_setup")
-
-@login_required
-def edit_routine(request):
-    if request.method == "POST":
-        rid = request.POST.get("routine_id")
-        title = request.POST.get("title")
-        time = request.POST.get("time")
-        description = request.POST.get("description")
-
-        # Ensure routine_id was passed correctly
-        if not rid:
-            messages.error(request, "❌ Routine missing — please try again.")
-            return redirect("routine_setup")
-
-        try:
-            routine = DailyRoutine.objects.get(id=rid, user=request.user)
-        except DailyRoutine.DoesNotExist:
-            messages.error(request, "⚠️ Routine not found or you don’t have permission to edit it.")
-            return redirect("routine_setup")
-
-        # ✅ Update existing record
-        routine.title = title
-        routine.time = time
-        routine.description = description
+        routine.title = request.POST.get("title")
+        routine.start_time = request.POST.get("start_time")
+        routine.end_time = request.POST.get("end_time")
+        routine.days = request.POST.getlist("days")
         routine.save()
 
         messages.success(request, "✏️ Routine updated successfully!")

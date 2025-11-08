@@ -31,7 +31,7 @@
     {% csrf_token %}
     <div class="mb-3">
       <label class="form-label fw-semibold">Title</label>
-      <input type="text" name="title" class="form-control" placeholder="e.g. Morning Routine" required>
+      <input type="text" name="title" class="form-control" placeholder="e.g. Morning Meditation" required>
     </div>
 
     <div class="row mb-3">
@@ -56,32 +56,6 @@
       </div>
     </div>
 
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Attach Diet Plan (optional)</label>
-      <select name="diet_day" class="form-select mb-2">
-        <option value="">-- Select Day --</option>
-        {% for d in weekdays %}
-        <option value="{{ d }}">{{ d }}</option>
-        {% endfor %}
-      </select>
-      <textarea name="diet_items" class="form-control" rows="3"
-        placeholder="Enter diet items or auto-fill from selected day"></textarea>
-      <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="loadDietBtn">📥 Load Diet from Day</button>
-    </div>
-
-    <div class="mb-3">
-      <label class="form-label fw-semibold">Attach Workout Plan (optional)</label>
-      <select name="workout_day" class="form-select mb-2">
-        <option value="">-- Select Day --</option>
-        {% for d in weekdays %}
-        <option value="{{ d }}">{{ d }}</option>
-        {% endfor %}
-      </select>
-      <textarea name="workout_items" class="form-control" rows="3"
-        placeholder="Enter workout exercises or auto-fill from selected day"></textarea>
-      <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="loadWorkoutBtn">📥 Load Workout from Day</button>
-    </div>
-
     <button type="submit" class="btn btn-success w-100 mt-3">💾 Save Routine</button>
   </form>
 
@@ -97,16 +71,13 @@
           {{ r.start_time|time:"h:i A" }} - {{ r.end_time|time:"h:i A" }} <br>
           Days: {{ r.days|join:", " }}
         </small>
-        {% if r.description %}
-        <pre class="mt-2 text-muted" style="white-space: pre-wrap;">{{ r.description }}</pre>
-        {% endif %}
       </div>
       <div class="d-flex gap-2 mt-2 mt-md-0">
         <button type="button" class="btn btn-sm btn-warning edit-btn"
           data-id="{{ r.id }}"
           data-title="{{ r.title }}"
-          data-start="{{ r.start_time }}"
-          data-end="{{ r.end_time }}"
+          data-start="{{ r.start_time|time:'H:i' }}"
+          data-end="{{ r.end_time|time:'H:i' }}"
           data-days="{{ r.days|join:',' }}">
           ✏️ Edit
         </button>
@@ -129,18 +100,22 @@
 <div class="modal fade" id="editRoutineModal" tabindex="-1" aria-labelledby="editRoutineModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
+      <!-- we’ll set the action dynamically -->
       <form method="POST" id="editRoutineForm">
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="editRoutineModalLabel">✏️ Edit Routine</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
+
         <div class="modal-body">
+          <!-- Title -->
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" name="title" id="editTitle" class="form-control" required>
           </div>
 
+          <!-- Time -->
           <div class="row mb-3">
             <div class="col-md-6">
               <label class="form-label">Start Time</label>
@@ -152,6 +127,7 @@
             </div>
           </div>
 
+          <!-- Days -->
           <div class="mb-3">
             <label class="form-label">Days</label>
             <div class="d-flex flex-wrap gap-2" id="editDaysContainer">
@@ -163,6 +139,7 @@
             </div>
           </div>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary">💾 Update</button>
@@ -175,33 +152,10 @@
 <!-- ⚡ JS Section -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const dietData = {{ diet_data|safe }};
-  const workoutData = {{ workout_data|safe }};
-
-  // 🥗 Load Diet Plan
-  document.getElementById("loadDietBtn").addEventListener("click", () => {
-    const day = document.querySelector("[name='diet_day']").value;
-    const textarea = document.querySelector("[name='diet_items']");
-    if (!day) return alert("Please select a day first.");
-    const meals = dietData[day];
-    if (!meals) return alert("No diet plan found for this day.");
-    textarea.value = Object.entries(meals).map(([meal, foods]) => `${meal}: ${foods.join(", ")}`).join("\n");
-  });
-
-  // 🏋️ Load Workout Plan
-  document.getElementById("loadWorkoutBtn").addEventListener("click", () => {
-    const day = document.querySelector("[name='workout_day']").value;
-    const textarea = document.querySelector("[name='workout_items']");
-    if (!day) return alert("Please select a day first.");
-    const w = workoutData[day];
-    if (!w) return alert("No workout plan found for this day.");
-    textarea.value = `${w.title}:\n${w.exercises.join("\n")}`;
-  });
-
-  // 🧩 Edit Button Handler
   const editButtons = document.querySelectorAll(".edit-btn");
   const editForm = document.getElementById("editRoutineForm");
   const editModal = new bootstrap.Modal(document.getElementById("editRoutineModal"));
+
   const titleInput = document.getElementById("editTitle");
   const startInput = document.getElementById("editStart");
   const endInput = document.getElementById("editEnd");
@@ -215,21 +169,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const end = btn.dataset.end;
       const days = btn.dataset.days.split(",");
 
-      titleInput.value = title;
-      startInput.value = start;
-      endInput.value = end;
+      // 🧠 Prefill modal form fields
+      titleInput.value = title.trim();
+      startInput.value = start.trim();
+      endInput.value = end.trim();
 
-      // Clear checkboxes
+      // Uncheck all, then recheck selected days
       daysContainer.querySelectorAll("input[type=checkbox]").forEach(cb => {
         cb.checked = days.includes(cb.value);
       });
 
-      // Update form action dynamically
-      editForm.action = `/edit_routine/${id}/`;
+      // Set the correct action URL dynamically
+      editForm.action = `/fit/edit_routine/${id}/`;
 
+      // Finally show modal
       editModal.show();
     });
   });
 });
 </script>
+
 {% endblock %}
