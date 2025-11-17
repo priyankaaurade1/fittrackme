@@ -162,49 +162,89 @@ def water_setup(request):
 
 @login_required
 def diet_setup(request):
-    profile = UserProfile.objects.filter(user=request.user).first()
-    if not profile or not profile.height_cm or not profile.current_weight:
-        messages.info(request, "Complete your profile first.")
-        return redirect('profile')
+    user = request.user
 
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
     meal_times = [
-        "Waking Snack", "Pre-workout Snack", "Post-workout snack","Breakfast", "Lunch",
-        "Evening Snack", "Dinner", "Before Bed"
+        "Waking Snack",
+        "Pre-workout Snack",
+        "Post-workout snack",
+        "Breakfast",
+        "Lunch",
+        "Evening Snack",
+        "Dinner",
+        "Before Bed"
     ]
-    selected_day = request.GET.get("day", "Monday")  # Default to Monday
 
-    if request.method == 'POST':
-        selected_day = request.POST.get("day", "Monday")
-        DietPlan.objects.filter(user=request.user, day=selected_day).delete()
+    # ---------------------------------------------------------
+    # SAVE WEEKLY DIET PLAN
+    # ---------------------------------------------------------
+    if request.method == "POST":
+        DietPlan.objects.filter(user=user).delete()
+
+        for day in weekdays:
+            day_slug = day.lower().replace(" ", "-")
+
+            for meal in meal_times:
+                meal_slug = f"{day_slug}_{meal.lower().replace(' ', '-')}"
+                foods = []
+
+                for key, value in request.POST.items():
+                    if key.startswith(meal_slug) and value.strip():
+                        foods.append(value.strip())
+
+                if foods:
+                    DietPlan.objects.create(
+                        user=user,
+                        day=day,
+                        meal_time=meal,
+                        food_items="\n".join(foods)
+                    )
+
+        messages.success(request, "Weekly diet plan updated successfully! 🍽️")
+        return redirect("diet_setup")
+
+    # ---------------------------------------------------------
+    # LOAD WEEKLY DIET DATA
+    # ---------------------------------------------------------
+    diet_data = []
+
+    for day in weekdays:
+        entries = DietPlan.objects.filter(user=user, day=day)
+
+        day_meals = {}
+
         for meal in meal_times:
-            meal_slug = meal.lower().replace(' ', '-')
-            food_items = []
-            for key, value in request.POST.items():
-                if key.startswith(f"{meal_slug}_item_") and value.strip():
-                    food_items.append(value.strip())
-            if food_items:
-                DietPlan.objects.create(
-                    user=request.user,
-                    day=selected_day,
-                    meal_time=meal,
-                    food_items="\n".join(food_items)
-                )
-        messages.success(request, f"Diet plan updated for {selected_day}! 🍽️")
-        return redirect(f"{request.path}?day={selected_day}")
+            obj = entries.filter(meal_time=meal).first()
+            day_meals[meal] = obj.food_items if obj else ""
 
-    # Fetch existing meals for selected day
-    existing = DietPlan.objects.filter(user=request.user, day=selected_day)
-    meal_data = []
-    for meal in meal_times:
-        match = next((e.food_items for e in existing if e.meal_time == meal), '')
-        meal_data.append((meal, match))
+        diet_data.append((day, day_meals.items()))
 
-    return render(request, 'diet_setup.html', {
-        'meal_data': meal_data,
-        'weekdays': weekdays,
-        'selected_day': selected_day,
+    return render(request, "diet_setup.html", {
+        "diet_data": diet_data,
     })
+
+@login_required
+def delete_diet_item(request):
+    if request.method == "POST":
+        user = request.user
+        day = request.POST.get("day")
+        meal_time = request.POST.get("meal_time")
+        food_item = request.POST.get("food_item")
+
+        entry = DietPlan.objects.filter(user=user, day=day, meal_time=meal_time).first()
+
+        if entry:
+            lines = entry.food_items.split("\n")
+            new_lines = [l for l in lines if l.strip() != food_item.strip()]
+
+            entry.food_items = "\n".join(new_lines)
+            entry.save()
+
+            return JsonResponse({"success": True})
+
+    return JsonResponse({"success": False, "error": "Invalid request"})
 
 @login_required
 def update_diet_item(request):
@@ -229,32 +269,6 @@ def update_diet_item(request):
     return JsonResponse({"success": False, "error": "Invalid request"})
 
 from django.http import JsonResponse
-@login_required
-def delete_diet_item(request):
-    """AJAX delete for a single food item in DietPlan."""
-    if request.method == "POST":
-        meal_time = request.POST.get("meal_time")
-        food_item = request.POST.get("food_item")
-
-        if not meal_time or not food_item:
-            return JsonResponse({"success": False, "error": "Missing data"})
-
-        # Find the matching record
-        diet = DietPlan.objects.filter(user=request.user, meal_time=meal_time).first()
-        if not diet:
-            return JsonResponse({"success": False, "error": "Meal not found"})
-
-        # Remove the food item from the text list
-        foods = [f.strip() for f in diet.food_items.splitlines() if f.strip()]
-        if food_item in foods:
-            foods.remove(food_item)
-            diet.food_items = "\n".join(foods)
-            diet.save()
-            return JsonResponse({"success": True})
-        else:
-            return JsonResponse({"success": False, "error": "Food not found in list"})
-
-    return JsonResponse({"success": False, "error": "Invalid request"})
 
 @login_required
 def workout_setup(request):
@@ -328,13 +342,13 @@ def delete_workout_item(request):
 @login_required
 def dashboard(request):
     user = request.user
-    # ✅ Ensure profile exists
+    # Ensure profile exists
     profile, created = UserProfile.objects.get_or_create(user=user)
     if not profile.height_cm or not profile.current_weight:
         messages.info(request, "Please complete your profile setup first.")
         return redirect('profile')
 
-    # ⚙️ Allow dashboard to load even if setup is incomplete
+    # Checks if setup exists
     diet_exists = DietPlan.objects.filter(user=user).exists()
     water_exists = WaterTarget.objects.filter(user=user).exists()
     workout_exists = WorkoutPlan.objects.filter(user=user).exists()
@@ -349,12 +363,16 @@ def dashboard(request):
     today = timezone.localdate()
     weekday = today.strftime('%A')
 
-    # ✅ Query user data
-    diet_qs = DietPlan.objects.filter(user=user) if diet_exists else []
+    # ⭐ FIX: Fetch ONLY today's diet plan
+    diet_qs = DietPlan.objects.filter(user=user, day=weekday) if diet_exists else []
+
+    # Today's workouts (already correct)
     workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday) if workout_exists else []
+
+    # Daily progress
     progress, _ = DailyProgress.objects.get_or_create(user=user, date=today)
 
-    # ✅ Water setup
+    # Water target
     water_target = WaterTarget.objects.filter(user=user).first()
     if water_target:
         water_type = water_target.measurement_type
@@ -366,7 +384,7 @@ def dashboard(request):
         water_unit = 250
         total_units = 8
 
-    # ✅ Handle POST (save progress)
+    # Handle POST - save progress
     if request.method == "POST":
         weight = request.POST.get("today_weight")
         if weight:
@@ -375,28 +393,27 @@ def dashboard(request):
                 user=user, date=today, defaults={"weight": Decimal(weight)}
             )
 
-        # 🍽️ Save completed foods (checked boxes)
-        # ✅ Save all checked foods properly
+        # Save food checkboxes
         selected_foods = [
             v for k, v in request.POST.items()
             if k.startswith("food_")
         ]
         progress.completed_foods = selected_foods
 
-        # 🏋️ Save completed workouts
+        # Save workouts
         completed_workouts = [
             v for k, v in request.POST.items() if k.startswith("workout_")
         ]
         progress.completed_workouts = completed_workouts
 
-        # 💧 Save water glasses
+        # Save water
         completed_water = [
             i for i in range(1, total_units + 1)
             if f"water_{i}" in request.POST
         ]
         progress.water_glasses = completed_water
 
-        # ⏰ Save completed routines (optional checkbox in UI)
+        # Save completed routines
         completed_routines = [
             r.title for r in DailyRoutine.objects.filter(user=user, is_active=True)
             if f"routine_{r.id}" in request.POST
@@ -407,16 +424,18 @@ def dashboard(request):
         messages.success(request, "✅ Progress saved successfully!")
         return redirect("dashboard")
 
-    # ✅ Prepare diet and workouts for template
+    # Prepare Diet for template
     diet = {
         d.meal_time: [i.strip() for i in d.food_items.splitlines() if i.strip()]
         for d in diet_qs
     }
+
+    # Prepare workouts for template
     workouts = [
         w.strip() for w in workout_qs[0].exercises.splitlines()
     ] if workout_qs.exists() else []
 
-    # ✅ Calculate total progress %
+    # Calculate progress %
     total_items = (
         len(workouts)
         + sum(len(v) for v in diet.values())
@@ -430,16 +449,17 @@ def dashboard(request):
     )
     progress_percent = int((completed_items / total_items) * 100) if total_items else 0
 
-    # ✅ Weight tracking
+    # Weight tracking
     recent_weights = list(WeightEntry.objects.filter(user=user).order_by('-date')[:7])[::-1]
     weights = [float(w.weight) for w in recent_weights]
     labels = [w.date.strftime("%d %b") for w in recent_weights]
+
     weight_diff = (
         round(float(recent_weights[-1].weight) - float(recent_weights[-2].weight), 1)
         if len(recent_weights) >= 2 else 0
     )
 
-    # ✅ BMI + Motivation
+    # BMI + motivation
     bmi = profile.bmi
     if not progress.today_weight:
         motivation = "🏁 Start by adding today’s weight to see your BMI and progress."
@@ -458,23 +478,20 @@ def dashboard(request):
     user_height = profile.height_cm
     yesterday_weight = weights[-2] if len(weights) >= 2 else None
 
-    # ✅ Timezone-safe routine handling
+    # Timezone routines
     tz = pytz.timezone(getattr(settings, "TIME_ZONE", "Asia/Kolkata"))
     now = timezone.now().astimezone(tz)
     today = timezone.localdate()
     weekday = today.strftime('%A')
 
-    # Fetch all user routines for today
     all_routines = DailyRoutine.objects.filter(
         user=request.user,
         is_active=True,
         is_auto=False
     )
 
-    # Filter those whose "days" include today's weekday
     routines = [r for r in all_routines if weekday in (r.days or [])]
 
-    # Format each routine for display
     today_routines = []
     for r in routines:
         start_ts = datetime.combine(today, r.start_time)
@@ -488,7 +505,6 @@ def dashboard(request):
             "is_done": is_done,
         })
 
-    # Find next upcoming routine (in IST)
     now = timezone.localtime().astimezone(tz)
     next_routine = None
     for r in routines:
@@ -502,11 +518,11 @@ def dashboard(request):
         start_dt = tz.localize(datetime.combine(today, next_routine.start_time))
         next_routine_summary = {
             "title": next_routine.title,
-            "time": f"{next_routine.start_time.strftime('%I:%M %p')} - {next_routine.end_time.strftime('%I:%M %p')} (IST)",  # 👈 Added IST
+            "time": f"{next_routine.start_time.strftime('%I:%M %p')} - {next_routine.end_time.strftime('%I:%M %p')} (IST)",
             "start_ts": int(start_dt.timestamp() * 1000)
         }
 
-    # ✅ Final context
+    # Final context
     context = {
         'today': today,
         'diet': diet or {},

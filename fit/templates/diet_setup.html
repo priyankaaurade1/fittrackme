@@ -6,190 +6,149 @@
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
   }
-  .diet-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  .day-section {
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
   }
   .form-label {
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
   }
-  .btn-outline-primary, .btn-outline-danger, .btn-outline-secondary {
+  .btn-outline-success, .btn-outline-danger, .btn-outline-secondary {
     border-radius: 8px;
     padding: 2px 10px;
   }
-  input.form-control {
-    border-radius: 8px;
-  }
-  .meal-section {
-    margin-bottom: 25px;
+  .meal-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 12px;
   }
   .input-group .form-control {
     border-radius: 8px 0 0 8px;
   }
-  .input-group button {
-    border-radius: 0;
-  }
 </style>
 
 <div class="container mt-4 mb-5">
-  <h2 class="text-center mb-4">🍽️ Set Your Daily Diet Plan</h2>
+  <h2 class="text-center mb-4">🍽️ Set Weekly Diet Plan</h2>
 
   <div class="diet-card">
-    <form method="post" id="dietForm">
+    <form method="post" id="diet-form">
       {% csrf_token %}
 
-      {% for meal, food_string in meal_data %}
-        <div class="meal-section">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label mb-0">{{ meal }}</label>
-            <button type="button" class="btn btn-sm btn-outline-primary add-btn" data-meal="{{ meal|slugify }}">➕ Add</button>
+      {% for day, meals in diet_data %}
+      <div class="day-section">
+        <label class="form-label d-flex justify-content-between align-items-center">
+          <span>{{ day }}</span>
+        </label>
+
+        {% for meal, food_string in meals %}
+        <div class="meal-block">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="meal-title">{{ meal }}</div>
+            <button type="button" class="btn btn-sm btn-outline-success"
+                    onclick="addDietField('{{ day }}', '{{ meal }}')">➕ Add</button>
           </div>
 
-          <div id="{{ meal|slugify }}-group">
-            {% with food_string|default:'' as food_line %}
-              {% for item in food_line.splitlines %}
-                {% if item %}
-                  <div class="input-group mb-2 animate__animated animate__fadeIn">
-                    <input type="text" name="{{ meal|slugify }}_item_{{ forloop.counter }}" 
-                           class="form-control" value="{{ item }}" readonly>
+          <div id="{{ day|slugify }}_{{ meal|slugify }}_container">
+            {% for item in food_string.splitlines %}
+            <div class="input-group mb-2 animate__animated animate__fadeIn">
+              <input type="text" class="form-control"
+                     name="{{ day|slugify }}_{{ meal|slugify }}"
+                     value="{{ item }}" readonly>
 
-                    <button type="button" class="btn btn-outline-secondary edit-btn"
-                            data-meal="{{ meal }}" data-original="{{ item }}">✏️</button>
+              <button type="button" class="btn btn-outline-secondary edit-btn"
+                      data-day="{{ day }}" data-meal="{{ meal }}" data-original="{{ item }}">✏️</button>
 
-                    <button type="button" class="btn btn-outline-danger remove-btn"
-                            data-meal="{{ meal }}" data-food="{{ item }}">🗑</button>
-                  </div>
-                {% endif %}
-              {% endfor %}
-            {% endwith %}
+              <button type="button" class="btn btn-outline-danger delete-btn"
+                      data-day="{{ day }}" data-meal="{{ meal }}" data-food="{{ item }}">🗑</button>
+            </div>
+            {% endfor %}
           </div>
+
         </div>
+        {% endfor %}
+      </div>
       {% endfor %}
 
-      <button type="submit" class="btn btn-primary w-100 mt-3 shadow-sm">💾 Save Diet Plan</button>
+      <button type="submit" class="btn btn-primary w-100 mt-3">💾 Save Diet Plan</button>
     </form>
   </div>
 </div>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
 
-  // 🗑 DELETE food item from DB via AJAX
-  document.querySelectorAll(".remove-btn").forEach(btn => {
+  // DELETE
+  document.querySelectorAll(".delete-btn").forEach(btn => {
     btn.addEventListener("click", () => {
+      const day = btn.dataset.day;
       const meal = btn.dataset.meal;
       const food = btn.dataset.food;
 
-      if (confirm(`Delete "${food}" from ${meal}?`)) {
-        fetch("{% url 'delete_diet_item' %}", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-CSRFToken": csrfToken,
-          },
-          body: new URLSearchParams({ meal_time: meal, food_item: food }),
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            const wrapper = btn.closest(".input-group");
-            wrapper.classList.add("animate__fadeOut");
-            setTimeout(() => wrapper.remove(), 300);
-          } else {
-            alert("Error: " + (data.error || "Unable to delete item."));
-          }
-        })
-        .catch(() => alert("Something went wrong!"));
-      }
+      fetch("{% url 'delete_diet_item' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": csrfToken,
+        },
+        body: new URLSearchParams({ day, meal_time: meal, food_item: food }),
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          btn.closest(".input-group").remove();
+        }
+      });
     });
   });
 
-  // ✏️ EDIT food item inline
+  // EDIT
   document.querySelectorAll(".edit-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const input = btn.closest(".input-group").querySelector("input");
-      const meal = btn.dataset.meal;
-      const originalValue = btn.dataset.original;
-
       if (btn.textContent === "✏️") {
-        // Switch to edit mode
         input.removeAttribute("readonly");
         input.focus();
         btn.textContent = "✅";
-        btn.classList.remove("btn-outline-secondary");
-        btn.classList.add("btn-outline-success");
       } else {
-        // Save edited value
-        const newValue = input.value.trim();
-        if (newValue && newValue !== originalValue) {
-          // Delete old + re-add new
-          fetch("{% url 'delete_diet_item' %}", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-CSRFToken": csrfToken,
-            },
-            body: new URLSearchParams({
-              meal_time: meal,
-              food_item: originalValue
-            }),
-          }).then(() => {
-            // Add new entry (temporary local update, DB updates on Save)
-            btn.dataset.original = newValue;
-          });
-        }
         input.setAttribute("readonly", true);
         btn.textContent = "✏️";
-        btn.classList.remove("btn-outline-success");
-        btn.classList.add("btn-outline-secondary");
       }
     });
   });
-
-  // ➕ ADD new item dynamically
-  document.querySelectorAll(".add-btn").forEach(button => {
-    button.addEventListener("click", () => {
-      const mealSlug = button.dataset.meal;
-      const container = document.getElementById(`${mealSlug}-group`);
-      const count = container.querySelectorAll(".input-group").length + 1;
-
-      const wrapper = document.createElement("div");
-      wrapper.classList.add("input-group", "mb-2", "animate__animated", "animate__fadeIn");
-
-      const input = document.createElement("input");
-      input.type = "text";
-      input.name = `${mealSlug}_item_${count}`;
-      input.placeholder = `Food item for ${mealSlug.replace('-', ' ')}`;
-      input.classList.add("form-control");
-
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.classList.add("btn", "btn-outline-secondary");
-      editBtn.innerHTML = "✏️";
-      editBtn.addEventListener("click", () => {
-        input.removeAttribute("readonly");
-        input.focus();
-      });
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.classList.add("btn", "btn-outline-danger");
-      deleteBtn.innerHTML = "🗑";
-      deleteBtn.addEventListener("click", () => wrapper.remove());
-
-      wrapper.appendChild(input);
-      wrapper.appendChild(editBtn);
-      wrapper.appendChild(deleteBtn);
-      container.appendChild(wrapper);
-      input.focus();
-    });
-  });
 });
+
+// ADD
+function addDietField(day, meal) {
+  const containerId = day.toLowerCase().replace(/ /g, '-') + "_" + 
+                      meal.toLowerCase().replace(/ /g, '-') + "_container";
+
+  const container = document.getElementById(containerId);
+
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("input-group", "mb-2", "animate__animated", "animate__fadeIn");
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.classList.add("form-control");
+  input.name = day.toLowerCase().replace(/ /g, '-') + "_" + 
+               meal.toLowerCase().replace(/ /g, '-');
+  input.placeholder = "Enter food item";
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.classList.add("btn", "btn-outline-danger");
+  deleteBtn.innerHTML = "🗑";
+  deleteBtn.addEventListener("click", () => wrapper.remove());
+
+  wrapper.appendChild(input);
+  wrapper.appendChild(deleteBtn);
+  container.appendChild(wrapper);
+  input.focus();
+}
 </script>
+
 {% endblock %}

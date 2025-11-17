@@ -230,26 +230,36 @@
         {% endif %}
       </div>
     </div>
+<!-- 🍽️ Diet Plan (Same layout as Workout) -->
+<div class="card mb-4">
+  <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
+  <div class="card-body">
 
-    <!-- 🍽️ Diet Plan -->
-    <div class="card mb-4">
-      <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
-      <div class="card-body">
-        {% for meal, food_list in diet.items %}
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+      {% for meal, food_list in diet.items %}
+      <div class="col">
         <strong>{{ meal }}</strong>
-        <div class="row row-cols-2 row-cols-md-2 g-2 mb-3">
-          {% for food in food_list %}
-          <div class="col">
-            <input type="checkbox" name="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" value="{{ food }}"
-              id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
-              {% if food in progress.completed_foods %}checked{% endif %}>
-            <label for="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}">{{ food }}</label>
-          </div>
-          {% endfor %}
+
+        {% for food in food_list %}
+        <div class="d-flex align-items-center mt-2">
+          <input type="checkbox"
+                 name="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
+                 id="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}"
+                 value="{{ food }}"
+                 {% if food in progress.completed_foods %}checked{% endif %}
+                 style="transform: scale(1.2); margin-right: 8px;">
+          <label for="food_{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
+            {{ food }}
+          </label>
         </div>
         {% endfor %}
       </div>
+      {% endfor %}
     </div>
+
+  </div>
+</div>
+
 
     <!-- 🏋️ Workout -->
     <div class="card mb-4">
