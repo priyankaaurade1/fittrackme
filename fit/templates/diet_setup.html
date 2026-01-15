@@ -55,8 +55,8 @@
             {% for item in food_string.splitlines %}
             <div class="input-group mb-2 animate__animated animate__fadeIn">
               <input type="text" class="form-control"
-                     name="{{ day|slugify }}_{{ meal|slugify }}"
-                     value="{{ item }}" readonly>
+                  name="{{ day|slugify }}_{{ meal|slugify }}[]"
+                  value="{{ item }}" readonly>
 
               <button type="button" class="btn btn-outline-secondary edit-btn"
                       data-day="{{ day }}" data-meal="{{ meal }}" data-original="{{ item }}">✏️</button>
@@ -134,8 +134,8 @@ function addDietField(day, meal) {
   const input = document.createElement("input");
   input.type = "text";
   input.classList.add("form-control");
-  input.name = day.toLowerCase().replace(/ /g, '-') + "_" + 
-               meal.toLowerCase().replace(/ /g, '-');
+  input.name = day.toLowerCase().replace(/ /g, '-') + "_" +
+             meal.toLowerCase().replace(/ /g, '-') + "[]";
   input.placeholder = "Enter food item";
 
   const deleteBtn = document.createElement("button");

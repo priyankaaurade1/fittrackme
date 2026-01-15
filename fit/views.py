@@ -163,67 +163,41 @@ def water_setup(request):
 @login_required
 def diet_setup(request):
     user = request.user
-
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
     meal_times = [
-        "Waking Snack",
-        "Pre-workout Snack",
-        "Post-workout snack",
-        "Breakfast",
-        "Lunch",
-        "Evening Snack",
-        "Dinner",
-        "Before Bed"
+        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
     ]
 
-    # ---------------------------------------------------------
-    # SAVE WEEKLY DIET PLAN
-    # ---------------------------------------------------------
     if request.method == "POST":
-        DietPlan.objects.filter(user=user).delete()
-
         for day in weekdays:
-            day_slug = day.lower().replace(" ", "-")
-
             for meal in meal_times:
-                meal_slug = f"{day_slug}_{meal.lower().replace(' ', '-')}"
-                foods = []
-
-                for key, value in request.POST.items():
-                    if key.startswith(meal_slug) and value.strip():
-                        foods.append(value.strip())
+                meal_slug = f"{day.lower().replace(' ', '-')}_{meal.lower().replace(' ', '-')}"
+                # ✅ Handles [] suffix correctly
+                foods = [f.strip() for f in request.POST.getlist(f"{meal_slug}[]") if f.strip()]
 
                 if foods:
-                    DietPlan.objects.create(
+                    DietPlan.objects.update_or_create(
                         user=user,
                         day=day,
                         meal_time=meal,
-                        food_items="\n".join(foods)
+                        defaults={"food_items": "\n".join(foods)}
                     )
 
-        messages.success(request, "Weekly diet plan updated successfully! 🍽️")
+        messages.success(request, "✅ Weekly diet plan saved successfully!")
         return redirect("diet_setup")
 
-    # ---------------------------------------------------------
-    # LOAD WEEKLY DIET DATA
-    # ---------------------------------------------------------
+    # Load data
     diet_data = []
-
     for day in weekdays:
         entries = DietPlan.objects.filter(user=user, day=day)
-
         day_meals = {}
-
         for meal in meal_times:
             obj = entries.filter(meal_time=meal).first()
             day_meals[meal] = obj.food_items if obj else ""
-
         diet_data.append((day, day_meals.items()))
 
-    return render(request, "diet_setup.html", {
-        "diet_data": diet_data,
-    })
+    return render(request, "diet_setup.html", {"diet_data": diet_data})
 
 @login_required
 def delete_diet_item(request):
@@ -545,6 +519,18 @@ def dashboard(request):
     }
 
     return render(request, 'dashboard.html', context)
+
+# new feature
+
+# | Body Part       | Expected Change                          |
+# | --------------- | ---------------------------------------- |
+# | Weight          | +0.25 to +0.6 kg/week                    |
+# | Hips            | +0.5 to +1.5 cm/month                    |
+# | Glutes          | +1 to +3 cm/month                        |
+# | Thighs (middle) | +0.5 to +1.5 cm/month                    |
+# | Arms (flexed)   | +0.3 to +1 cm/month                      |
+# | Waist           | +0 to +1 cm/month (small gain is normal) |
+# | Shoulders       | +0.5 to +1.5 cm/month                    |
 
 @login_required
 def analysis(request):
