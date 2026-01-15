@@ -337,16 +337,14 @@ def dashboard(request):
     today = timezone.localdate()
     weekday = today.strftime('%A')
 
-    # ⭐ FIX: Fetch ONLY today's diet plan
+    # ⭐ Fetch today's plans
     diet_qs = DietPlan.objects.filter(user=user, day=weekday) if diet_exists else []
-
-    # Today's workouts (already correct)
     workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday) if workout_exists else []
 
     # Daily progress
     progress, _ = DailyProgress.objects.get_or_create(user=user, date=today)
 
-    # Water target
+    # 💧 Water target
     water_target = WaterTarget.objects.filter(user=user).first()
     if water_target:
         water_type = water_target.measurement_type
@@ -398,18 +396,84 @@ def dashboard(request):
         messages.success(request, "✅ Progress saved successfully!")
         return redirect("dashboard")
 
-    # Prepare Diet for template
-    diet = {
+    # 🥗 Prepare Diet for template
+    meal_order = [
+        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
+    ]
+
+    diet_unsorted = {
         d.meal_time: [i.strip() for i in d.food_items.splitlines() if i.strip()]
         for d in diet_qs
     }
 
-    # Prepare workouts for template
+    diet = {meal: diet_unsorted.get(meal, []) for meal in meal_order if meal in diet_unsorted}
+
+    # 🏋️ Prepare workouts for template
     workouts = [
         w.strip() for w in workout_qs[0].exercises.splitlines()
     ] if workout_qs.exists() else []
 
-    # Calculate progress %
+    # 🕒 Build time-based daily flow (NEW)
+    meal_times = [
+        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
+    ]
+    time_mapping = {
+        "Waking Snack": time(4, 45),
+        "Pre-workout Snack": time(5, 0),
+        "Post-workout snack": time(6, 30),
+        "Breakfast": time(8, 15),
+        "Mid-Morning": time(11, 0),
+        "Lunch": time(13, 30),
+        "Evening Snack": time(16, 45),
+        "Dinner": time(20, 30),
+        "Before Bed": time(21, 30),
+    }
+
+    ordered_diet = []
+    for meal in meal_times:
+        entry = diet_qs.filter(meal_time=meal).first()
+        if entry:
+            ordered_diet.append({
+                "meal_time": meal,
+                "foods": [f.strip() for f in entry.food_items.splitlines() if f.strip()],
+                "time": time_mapping.get(meal),
+            })
+
+    workout_entry = workout_qs.first() if workout_qs.exists() else None
+    workout_data = None
+    if workout_entry:
+        workout_data = {
+            "title": f"Workout – {workout_entry.title or 'Session'}",
+            "exercises": [x.strip() for x in workout_entry.exercises.splitlines() if x.strip()],
+            "time": time(5, 30),
+        }
+
+    timeline = []
+    for meal in ordered_diet:
+        timeline.append({
+            "type": "meal",
+            "title": meal["meal_time"],
+            "items": meal["foods"],
+            "time": meal["time"],
+            "icon": "🍽️",
+        })
+
+    if workout_data:
+        timeline.append({
+            "type": "workout",
+            "title": workout_data["title"],
+            "items": workout_data["exercises"],
+            "time": workout_data["time"],
+            "icon": "🏋️",
+        })
+
+    timeline.sort(key=lambda x: x["time"])
+    for t in timeline:
+        t["time_label"] = t["time"].strftime("%I:%M %p")
+
+    # ✅ Calculate progress %
     total_items = (
         len(workouts)
         + sum(len(v) for v in diet.values())
@@ -423,17 +487,16 @@ def dashboard(request):
     )
     progress_percent = int((completed_items / total_items) * 100) if total_items else 0
 
-    # Weight tracking
+    # 📈 Weight chart
     recent_weights = list(WeightEntry.objects.filter(user=user).order_by('-date')[:7])[::-1]
     weights = [float(w.weight) for w in recent_weights]
     labels = [w.date.strftime("%d %b") for w in recent_weights]
-
     weight_diff = (
         round(float(recent_weights[-1].weight) - float(recent_weights[-2].weight), 1)
         if len(recent_weights) >= 2 else 0
     )
 
-    # BMI + motivation
+    # 💬 Motivation
     bmi = profile.bmi
     if not progress.today_weight:
         motivation = "🏁 Start by adding today’s weight to see your BMI and progress."
@@ -452,7 +515,7 @@ def dashboard(request):
     user_height = profile.height_cm
     yesterday_weight = weights[-2] if len(weights) >= 2 else None
 
-    # Timezone routines
+    # 🕓 Routines (manual)
     tz = pytz.timezone(getattr(settings, "TIME_ZONE", "Asia/Kolkata"))
     now = timezone.now().astimezone(tz)
     today = timezone.localdate()
@@ -463,8 +526,10 @@ def dashboard(request):
         is_active=True,
         is_auto=False
     )
-
-    routines = [r for r in all_routines if weekday in (r.days or [])]
+    routines = sorted(
+        [r for r in all_routines if weekday in (r.days or [])],
+        key=lambda r: r.start_time
+    )
 
     today_routines = []
     for r in routines:
@@ -496,11 +561,12 @@ def dashboard(request):
             "start_ts": int(start_dt.timestamp() * 1000)
         }
 
-    # Final context
+    # 🎯 Final context
     context = {
         'today': today,
         'diet': diet or {},
         'workouts': workouts or [],
+        'timeline': timeline or [],  # 👈 new daily flow
         'progress': progress or {},
         'water_type': water_type,
         'total_units': total_units,
