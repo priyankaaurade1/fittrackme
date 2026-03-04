@@ -165,8 +165,8 @@ def diet_setup(request):
     user = request.user
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     meal_times = [
-        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
-        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
+        "Waking Snack", 
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack","Pre-workout Snack", "Post-workout snack", "Dinner", "Before Bed"
     ]
 
     if request.method == "POST":
@@ -398,8 +398,8 @@ def dashboard(request):
 
     # 🥗 Prepare Diet for template
     meal_order = [
-        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
-        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
+        "Waking Snack", 
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack","Pre-workout Snack", "Post-workout snack", "Dinner", "Before Bed"
     ]
 
     diet_unsorted = {
@@ -416,17 +416,17 @@ def dashboard(request):
 
     # 🕒 Build time-based daily flow (NEW)
     meal_times = [
-        "Waking Snack", "Pre-workout Snack", "Post-workout snack",
-        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack", "Dinner", "Before Bed"
+        "Waking Snack", 
+        "Breakfast", "Mid-Morning", "Lunch", "Evening Snack","Pre-workout Snack", "Post-workout snack", "Dinner", "Before Bed"
     ]
     time_mapping = {
-        "Waking Snack": time(4, 45),
-        "Pre-workout Snack": time(5, 0),
-        "Post-workout snack": time(6, 30),
-        "Breakfast": time(8, 15),
-        "Mid-Morning": time(11, 0),
-        "Lunch": time(13, 30),
-        "Evening Snack": time(16, 45),
+        "Waking Snack": time(5, 0),
+        "Breakfast": time(7, 0),
+        "Mid-Morning": time(10, 0),
+        "Lunch": time(12, 30),
+        "Evening Snack": time(15, 45),
+        "Pre-workout Snack": time(17, 0),
+        "Post-workout snack": time(19, 30),
         "Dinner": time(20, 30),
         "Before Bed": time(21, 30),
     }
@@ -747,7 +747,7 @@ def routine_setup(request):
         start_time = request.POST.get("start_time")
         end_time = request.POST.get("end_time")
         days = request.POST.getlist("days")
-
+        description = request.POST.get("description")
         # Ensure required fields are present
         if not title or not start_time or not end_time or not days:
             messages.error(request, "⚠️ Please fill all required fields.")
@@ -760,7 +760,7 @@ def routine_setup(request):
                 start_time=start_time,
                 end_time=end_time,
                 days=days,  # Stored as JSON
-                description=f"Custom routine: {title}",
+                description=description,
             )
             messages.success(request, "✅ Routine saved successfully!")
         except Exception as e:
@@ -789,6 +789,8 @@ def edit_routine(request, routine_id):
         routine.start_time = request.POST.get("start_time")
         routine.end_time = request.POST.get("end_time")
         routine.days = request.POST.getlist("days")
+        routine.description = request.POST.get("description")
+
         routine.save()
 
         messages.success(request, "✏️ Routine updated successfully!")

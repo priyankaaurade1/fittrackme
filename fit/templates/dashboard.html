@@ -149,7 +149,7 @@
 
     <!-- ⚖️ Weight + BMI -->
     <div class="row mb-4">
-      <div class="col-md-4 mb-3 mb-md-0">
+      <!-- <div class="col-md-4 mb-3 mb-md-0">
         <label for="today_weight" class="form-label"><strong>⚖️ Today's Weight (kg)</strong></label>
         <input type="number" step="0.01" name="today_weight" id="today_weight" class="form-control"
                value="{{ progress.today_weight|default_if_none:'' }}" placeholder="e.g., 60.5">
@@ -184,7 +184,7 @@
       </div>
       <div class="col-md-4">
         <canvas id="weightChart" height="150"></canvas>
-      </div>
+      </div> -->
     </div>
 
     <!-- ⏰ Today’s Routine -->
@@ -201,6 +201,11 @@
               <div class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
                   <strong>{{ r.title }}</strong>
+
+                  {% if r.description %}
+                    <small class="text-muted d-block">{{ r.description }}</small>
+                  {% endif %}
+
                   <small class="text-muted d-block">{{ r.time }}</small>
                 </div>
 
@@ -232,7 +237,7 @@
     </div>
 <!-- 🍽️ Diet Plan (Same layout as Workout) -->
 <div class="card mb-4">
-  <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
+  <div class="card-header bg-light fw-bold">🍽️ Diet Plan ( Daily Target - 1950–2050 kcal,65–70 g )</div>
   <div class="card-body">
 
     <div class="row row-cols-1 row-cols-md-2 g-3">
