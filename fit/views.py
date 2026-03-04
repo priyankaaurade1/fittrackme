@@ -858,3 +858,36 @@ def delete_journal(request, entry_id):
         messages.success(request, "🗑️ Journal deleted successfully!")
     return redirect("journal_view")
 
+# views.py
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@require_POST
+def calculate_food(request):
+    data = json.loads(request.body)
+
+    food_name = data.get("food")
+    quantity = float(data.get("quantity"))
+    unit = data.get("unit")
+
+    # find food (name or alias)
+    food = FoodItem.objects.filter(
+        Q(name__iexact=food_name) |
+        Q(aliases__icontains=food_name)
+    ).first()
+
+    if not food:
+        return JsonResponse({"error": "Food not found"}, status=404)
+
+    unit_obj = FoodUnit.objects.get(food=food, unit=unit)
+    grams = quantity * unit_obj.grams_equivalent
+    factor = grams / 100
+
+    return JsonResponse({
+        "calories": round(food.calories_per_100g * factor, 1),
+        "protein": round(food.protein_per_100g * factor, 1),
+        "carbs": round(food.carbs_per_100g * factor, 1),
+        "fat": round(food.fat_per_100g * factor, 1),
+    })

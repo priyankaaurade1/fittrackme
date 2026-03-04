@@ -23,5 +23,7 @@ urlpatterns = [
     path("journal/delete/<int:entry_id>/", views.delete_journal, name="delete_journal"),
     path('delete-diet-item/', views.delete_diet_item, name='delete_diet_item'),
     path('delete-workout-item/', views.delete_workout_item, name='delete_workout_item'),
+    # urls.py
+    path("api/calculate-food/", views.calculate_food, name="calculate_food"),
 
 ]

@@ -233,6 +233,29 @@
 <!-- 🍽️ Diet Plan (Same layout as Workout) -->
 <div class="card mb-4">
   <div class="card-header bg-light fw-bold">🍽️ Diet Plan</div>
+      <div class="card mt-3">
+        <div class="card-header fw-bold">🔥 Today’s Total</div>
+        <div class="card-body">
+          Calories: <strong><span id="totalCalories">0</span> kcal</strong><br>
+          Protein: <span id="totalProtein">0</span> g<br>
+          Carbs: <span id="totalCarbs">0</span> g<br>
+          Fat: <span id="totalFat">0</span> g
+        </div>
+      </div>
+
+      <div class="food-row">
+        <input type="text" class="food-name" placeholder="Milk / Chapati">
+        <input type="number" class="food-qty" placeholder="Qty">
+        <select class="food-unit">
+          <option value="ml">ml</option>
+          <option value="g">g</option>
+          <option value="piece">piece</option>
+          <option value="tbsp">tbsp</option>
+        </select>
+
+        <span class="food-calories">0 kcal</span>
+      </div>
+
   <div class="card-body">
 
     <div class="row row-cols-1 row-cols-md-2 g-3">
@@ -565,4 +588,55 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(updateAll, 1000);
 });
 </script>
+<script>
+async function calculateFood(row) {
+  const food = row.querySelector(".food-name").value;
+  const qty = row.querySelector(".food-qty").value;
+  const unit = row.querySelector(".food-unit").value;
+
+  if (!food || !qty) return;
+
+  const res = await fetch("/api/calculate-food/", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ food, quantity: qty, unit })
+  });
+
+  if (!res.ok) return;
+
+  const data = await res.json();
+  row.dataset.calories = data.calories;
+  row.dataset.protein = data.protein;
+  row.dataset.carbs = data.carbs;
+  row.dataset.fat = data.fat;
+
+  row.querySelector(".food-calories").innerText =
+    `${data.calories} kcal`;
+
+  updateTotals();
+}
+
+function updateTotals() {
+  let total = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  document.querySelectorAll(".food-row").forEach(row => {
+    total.calories += parseFloat(row.dataset.calories || 0);
+    total.protein += parseFloat(row.dataset.protein || 0);
+    total.carbs += parseFloat(row.dataset.carbs || 0);
+    total.fat += parseFloat(row.dataset.fat || 0);
+  });
+
+  document.getElementById("totalCalories").innerText = total.calories.toFixed(1);
+  document.getElementById("totalProtein").innerText = total.protein.toFixed(1);
+  document.getElementById("totalCarbs").innerText = total.carbs.toFixed(1);
+  document.getElementById("totalFat").innerText = total.fat.toFixed(1);
+}
+
+document.addEventListener("input", e => {
+  if (e.target.closest(".food-row")) {
+    calculateFood(e.target.closest(".food-row"));
+  }
+});
+</script>
+
 {% endblock %}

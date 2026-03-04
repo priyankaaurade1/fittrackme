@@ -97,3 +97,16 @@ class DailyJournal(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.date}"
+
+class FoodItem(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    aliases = models.JSONField(default=list, blank=True)
+    calories_per_100g = models.FloatField()
+    protein_per_100g = models.FloatField()
+    carbs_per_100g = models.FloatField()
+    fat_per_100g = models.FloatField()
+
+class FoodUnit(models.Model):
+    food = models.ForeignKey(FoodItem, on_delete=models.CASCADE)
+    unit = models.CharField(max_length=20)  # g, piece, cup, tbsp, ml
+    grams_equivalent = models.FloatField()
