@@ -5,10 +5,21 @@ from datetime import date
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=100, blank=True)
-    age = models.PositiveIntegerField(null=True, blank=True)
+    
+    birth_date = models.DateField(null=True, blank=True)  # ✅ NEW FIELD
+    
     sex = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], blank=True)
     height_cm = models.FloatField(null=True, blank=True)
     current_weight = models.FloatField(null=True, blank=True)
+
+    @property
+    def age(self):
+        if self.birth_date:
+            today = date.today()
+            return today.year - self.birth_date.year - (
+                (today.month, today.day) < (self.birth_date.month, self.birth_date.day)
+            )
+        return None
 
     @property
     def bmi(self):

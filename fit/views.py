@@ -319,7 +319,7 @@ def dashboard(request):
     # Ensure profile exists
     profile, created = UserProfile.objects.get_or_create(user=user)
     if not profile.height_cm or not profile.current_weight:
-        messages.info(request, "Please complete your profile setup first.")
+        messages.info(request, "⚠️ Your profile is incomplete. Add details for better tracking.")
         return redirect('profile')
 
     # Checks if setup exists
@@ -338,8 +338,8 @@ def dashboard(request):
     weekday = today.strftime('%A')
 
     # ⭐ Fetch today's plans
-    diet_qs = DietPlan.objects.filter(user=user, day=weekday) if diet_exists else []
-    workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday) if workout_exists else []
+    diet_qs = DietPlan.objects.filter(user=user, day=weekday)
+    workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday)
 
     # Daily progress
     progress, _ = DailyProgress.objects.get_or_create(user=user, date=today)
@@ -358,12 +358,12 @@ def dashboard(request):
 
     # Handle POST - save progress
     if request.method == "POST":
-        weight = request.POST.get("today_weight")
-        if weight:
-            progress.today_weight = Decimal(weight)
-            WeightEntry.objects.update_or_create(
-                user=user, date=today, defaults={"weight": Decimal(weight)}
-            )
+        # weight = request.POST.get("today_weight")
+        # if weight:
+        #     progress.today_weight = Decimal(weight)
+        #     WeightEntry.objects.update_or_create(
+        #         user=user, date=today, defaults={"weight": Decimal(weight)}
+        #     )
 
         # Save food checkboxes
         selected_foods = [
@@ -410,9 +410,11 @@ def dashboard(request):
     diet = {meal: diet_unsorted.get(meal, []) for meal in meal_order if meal in diet_unsorted}
 
     # 🏋️ Prepare workouts for template
-    workouts = [
-        w.strip() for w in workout_qs[0].exercises.splitlines()
-    ] if workout_qs.exists() else []
+    workouts = []
+    if workout_qs.exists():
+        workouts = [
+            w.strip() for w in workout_qs.first().exercises.splitlines()
+        ]
 
     # 🕒 Build time-based daily flow (NEW)
     meal_times = [
@@ -724,10 +726,15 @@ def profile(request):
 
     if request.method == 'POST':
         profile.full_name = request.POST.get('full_name') or user.username
-        profile.age = request.POST.get('age')
+        
+        birth_date = request.POST.get('birth_date')  # ✅ NEW
+        if birth_date:
+            profile.birth_date = birth_date
+
         profile.sex = request.POST.get('sex')
         profile.height_cm = request.POST.get('height_cm')
         profile.current_weight = request.POST.get('current_weight')
+
         profile.save()
         messages.success(request, "✅ Profile updated.")
         return redirect('diet_setup')
