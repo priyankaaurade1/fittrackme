@@ -89,8 +89,8 @@ def auto_sync_routines(user):
             start_time=start,  # 👈 uniquely identifies per title+time
             end_time=end,
             defaults={
-                "description": f"{d.day} diet: {d.food_items[:150]}...",
-                "days": [d.day],
+                "days": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+                "description": f"Daily diet: {d.food_items[:150]}...",
                 "is_active": True,
                 "is_auto": True,
             },
@@ -163,39 +163,33 @@ def water_setup(request):
 @login_required
 def diet_setup(request):
     user = request.user
-    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    # weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     meal_times = [
         "Waking Snack", 
         "Breakfast", "Mid-Morning", "Lunch", "Evening Snack","Pre-workout Snack", "Post-workout snack", "Dinner", "Before Bed"
     ]
 
     if request.method == "POST":
-        for day in weekdays:
-            for meal in meal_times:
-                meal_slug = f"{day.lower().replace(' ', '-')}_{meal.lower().replace(' ', '-')}"
-                # ✅ Handles [] suffix correctly
-                foods = [f.strip() for f in request.POST.getlist(f"{meal_slug}[]") if f.strip()]
+        for meal in meal_times:
+            meal_slug = meal.lower().replace(' ', '-')
+            foods = [f.strip() for f in request.POST.getlist(f"{meal_slug}[]") if f.strip()]
 
-                if foods:
-                    DietPlan.objects.update_or_create(
-                        user=user,
-                        day=day,
-                        meal_time=meal,
-                        defaults={"food_items": "\n".join(foods)}
-                    )
+            if foods:
+                DietPlan.objects.update_or_create(
+                    user=user,
+                    meal_time=meal,
+                    defaults={"food_items": "\n".join(foods)}
+                )
 
         messages.success(request, "✅ Weekly diet plan saved successfully!")
         return redirect("diet_setup")
 
     # Load data
     diet_data = []
-    for day in weekdays:
-        entries = DietPlan.objects.filter(user=user, day=day)
-        day_meals = {}
-        for meal in meal_times:
-            obj = entries.filter(meal_time=meal).first()
-            day_meals[meal] = obj.food_items if obj else ""
-        diet_data.append((day, day_meals.items()))
+
+    for meal in meal_times:
+        obj = DietPlan.objects.filter(user=request.user, meal_time=meal).first()
+        diet_data.append((meal, obj.food_items if obj else ""))
 
     return render(request, "diet_setup.html", {"diet_data": diet_data})
 
@@ -338,7 +332,7 @@ def dashboard(request):
     weekday = today.strftime('%A')
 
     # ⭐ Fetch today's plans
-    diet_qs = DietPlan.objects.filter(user=user, day=weekday)
+    diet_qs = DietPlan.objects.filter(user=user)
     workout_qs = WorkoutPlan.objects.filter(user=user, day=weekday)
 
     # Daily progress

@@ -320,112 +320,18 @@
 <!-- JS for Chart, BMI, Progress, Water Emojis -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const ctx = document.getElementById('weightChart').getContext('2d');
-  const weightChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: {{ labels|safe }},
-      datasets: [{
-        label: 'Weight (kg)',
-        data: {{ weights|safe }},
-        borderColor: 'rgb(75, 192, 192)',
-        tension: 0.3,
-        fill: false,
-        pointRadius: 5,
-        pointHoverRadius: 7
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: false
-        }
-      }
-    }
-  });
+  const heightEl = document.getElementById('user_height');
+  const yesterdayEl = document.getElementById('yesterday_weight');
 
-  const weightInput = document.getElementById('today_weight');
-  const height = parseFloat(document.getElementById('user_height').value);
-  const yesterdayWeight = parseFloat(document.getElementById('yesterday_weight').value);
+  const height = heightEl ? parseFloat(heightEl.value) : null;
+  const yesterdayWeight = yesterdayEl ? parseFloat(yesterdayEl.value) : null;
   const bmiDisplay = document.getElementById('bmiValue');
   const weightDiffDisplay = document.getElementById('weightDiffDisplay');
   const motivationMsg = document.getElementById('motivationMsg');
   const bmiEmoji = document.getElementById('bmiEmoji');
 
   // 🎯 Animated BMI + Live Motivation
-  function updateLiveCalculations() {
-    const weight = parseFloat(weightInput.value);
-
-    if (!isNaN(weight)) {
-      // 🧮 Compute BMI
-      if (!isNaN(height) && height > 0) {
-        const bmi = weight / ((height / 100) ** 2);
-        animateBMI(bmiDisplay, parseFloat(bmiDisplay.textContent) || 0, bmi, 800);
-        updateMotivation(bmi);
-      }
-
-      // ⚖️ Weight difference
-      if (!isNaN(yesterdayWeight)) {
-        const diff = weight - yesterdayWeight;
-        let diffText = '';
-
-        if (diff > 0) {
-          diffText = `<span style="color:green; font-weight: bold;">↑</span> Gained <strong>${diff.toFixed(1)}</strong> kg since yesterday`;
-        } else if (diff < 0) {
-          diffText = `<span style="color:red; font-weight: bold;">↓</span> Lost <strong>${Math.abs(diff).toFixed(1)}</strong> kg since yesterday`;
-        } else {
-          diffText = `<span style="color:gray;">→</span> No change since yesterday`;
-        }
-        weightDiffDisplay.innerHTML = diffText;
-      }
-    } else {
-      bmiDisplay.textContent = '--';
-      motivationMsg.textContent = '🏁 Start by adding today’s weight to see your BMI and progress.';
-      bmiEmoji.innerHTML = '';
-      weightDiffDisplay.innerHTML = '<span style="color:gray;">⚖️ Please enter your weight to start tracking.</span>';
-    }
-  }
-
-  // 🔢 Smooth number animation
-  function animateBMI(element, start, end, duration) {
-    const startTime = performance.now();
-    function animate(currentTime) {
-      const progress = Math.min((currentTime - startTime) / duration, 1);
-      const value = start + (end - start) * progress;
-      element.textContent = value.toFixed(2);
-      if (progress < 1) requestAnimationFrame(animate);
-    }
-    requestAnimationFrame(animate);
-    element.classList.add('animate__pulse');
-    setTimeout(() => element.classList.remove('animate__pulse'), 800);
-  }
-
-  // 💬 Smart motivation logic
-  function updateMotivation(bmi) {
-    let msg = '';
-    let emoji = '';
-
-    if (bmi < 18.5) {
-      msg = "You're underweight. Let’s build strength! 💪";
-      emoji = "💪";
-    } else if (bmi < 25) {
-      msg = "Healthy range! Keep it up! 🥗";
-      emoji = "🥗";
-    } else if (bmi < 30) {
-      msg = "Slightly overweight. Let's trim it down! 🏃";
-      emoji = "🏃";
-    } else {
-      msg = "Obese category. Take care of your health. ❤️";
-      emoji = "❤️";
-    }
-
-    motivationMsg.textContent = msg;
-    bmiEmoji.innerHTML = `<span class="animate__animated animate__heartBeat">${emoji}</span>`;
-  }
-
-  weightInput.addEventListener('input', updateLiveCalculations);
-
+  
   function updateProgressBar() {
     const all = document.querySelectorAll('input[type="checkbox"]');
     const checked = Array.from(all).filter(cb => cb.checked).length;

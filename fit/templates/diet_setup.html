@@ -37,41 +37,30 @@
     <form method="post" id="diet-form">
       {% csrf_token %}
 
-      {% for day, meals in diet_data %}
-      <div class="day-section">
-        <label class="form-label d-flex justify-content-between align-items-center">
-          <span>{{ day }}</span>
-        </label>
+      {% for meal, food_string in diet_data %}
+<div class="meal-block mb-4">
 
-        {% for meal, food_string in meals %}
-        <div class="meal-block">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <div class="meal-title">{{ meal }}</div>
-            <button type="button" class="btn btn-sm btn-outline-success"
-                    onclick="addDietField('{{ day }}', '{{ meal }}')">➕ Add</button>
-          </div>
+  <div class="d-flex justify-content-between align-items-center mb-1">
+    <div class="meal-title">{{ meal }}</div>
+    <button type="button" class="btn btn-sm btn-outline-success"
+            onclick="addDietField('{{ meal }}')">➕ Add</button>
+  </div>
 
-          <div id="{{ day|slugify }}_{{ meal|slugify }}_container">
-            {% for item in food_string.splitlines %}
-            <div class="input-group mb-2 animate__animated animate__fadeIn">
-              <input type="text" class="form-control"
-                  name="{{ day|slugify }}_{{ meal|slugify }}[]"
-                  value="{{ item }}" readonly>
+  <div id="{{ meal|slugify }}_container">
+    {% for item in food_string.splitlines %}
+    <div class="input-group mb-2">
+      <input type="text" class="form-control"
+             name="{{ meal|slugify }}[]"
+             value="{{ item }}" readonly>
 
-              <button type="button" class="btn btn-outline-secondary edit-btn"
-                      data-day="{{ day }}" data-meal="{{ meal }}" data-original="{{ item }}">✏️</button>
+      <button type="button" class="btn btn-outline-secondary edit-btn">✏️</button>
+      <button type="button" class="btn btn-outline-danger delete-btn">🗑</button>
+    </div>
+    {% endfor %}
+  </div>
 
-              <button type="button" class="btn btn-outline-danger delete-btn"
-                      data-day="{{ day }}" data-meal="{{ meal }}" data-food="{{ item }}">🗑</button>
-            </div>
-            {% endfor %}
-          </div>
-
-        </div>
-        {% endfor %}
-      </div>
-      {% endfor %}
-
+</div>
+{% endfor %}
       <button type="submit" class="btn btn-primary w-100 mt-3">💾 Save Diet Plan</button>
     </form>
   </div>
@@ -122,32 +111,29 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ADD
-function addDietField(day, meal) {
-  const containerId = day.toLowerCase().replace(/ /g, '-') + "_" + 
-                      meal.toLowerCase().replace(/ /g, '-') + "_container";
+function addDietField(meal) {
+  const containerId = meal.toLowerCase().replace(/ /g, '-') + "_container";
 
   const container = document.getElementById(containerId);
 
   const wrapper = document.createElement("div");
-  wrapper.classList.add("input-group", "mb-2", "animate__animated", "animate__fadeIn");
+  wrapper.classList.add("input-group", "mb-2");
 
   const input = document.createElement("input");
   input.type = "text";
   input.classList.add("form-control");
-  input.name = day.toLowerCase().replace(/ /g, '-') + "_" +
-             meal.toLowerCase().replace(/ /g, '-') + "[]";
+  input.name = meal.toLowerCase().replace(/ /g, '-') + "[]";
   input.placeholder = "Enter food item";
 
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
   deleteBtn.classList.add("btn", "btn-outline-danger");
   deleteBtn.innerHTML = "🗑";
-  deleteBtn.addEventListener("click", () => wrapper.remove());
+  deleteBtn.onclick = () => wrapper.remove();
 
   wrapper.appendChild(input);
   wrapper.appendChild(deleteBtn);
   container.appendChild(wrapper);
-  input.focus();
 }
 </script>
 
